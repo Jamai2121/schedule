@@ -1,0 +1,16 @@
+{
+  "weeks": [
+    {
+      "number": 1,
+      "parity": "odd",
+      "days": {
+        "monday": [
+          { "subject": "Математика", "subgroup": 0, "time": "09:00", "homework": "стр. 45-47" },
+          { "subject": "Физика", "subgroup": 1, "time": "10:40", "homework": "лаб. №3" },
+          { "subject": "Физика", "subgroup": 2, "time": "10:40", "homework": "лаб. №4" }
+        ],
+        "tuesday": []
+      }
+    }
+  ]
+}

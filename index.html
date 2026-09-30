@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Расписание</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Расписание</h1>
+    <div id="week-info" class="week-info">Загрузка…</div>
+  </header>
+
+  <main>
+    <div id="schedule" class="schedule"></div>
+    <div id="status" class="status"></div>
+  </main>
+
+  <!-- Модалка для Д/З -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <button class="modal-close" id="modal-close">×</button>
+      <h2 id="modal-title"></h2>
+      <p id="modal-meta" class="modal-meta"></p>
+      <div class="modal-body">
+        <strong>Домашнее задание:</strong>
+        <p id="modal-homework"></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
