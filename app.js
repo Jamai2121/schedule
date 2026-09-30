@@ -19,16 +19,23 @@ async function fetchSchedule() {
   return res.json();
 }
 
-// ==== ОПРЕДЕЛЕНИЕ ТЕКУЩЕЙ НЕДЕЛИ ====
+// ==== ОПРЕДЕЛЕНИЕ ТЕКУЩЕЙ НЕДЕЛИ (от 1 сентября) ====
 function detectCurrentWeek(data) {
   const now = new Date();
-  const startOfYear = new Date(now.getFullYear(), 0, 1);
-  const days = Math.floor((now - startOfYear) / 86400000);
-  const isoWeek = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+  now.setHours(0, 0, 0, 0);
 
-  return data.weeks.find(w => w.number === isoWeek) || data.weeks[0];
+  const start = new Date(now.getFullYear(), 8, 1); // 8 = сентябрь
+  start.setHours(0, 0, 0, 0);
+
+  // Если сейчас январь–август, значит семестр начался в прошлом году
+  if (now < start) {
+    start.setFullYear(start.getFullYear() - 1);
+  }
+
+  const weekNumber = Math.floor((now - start) / (7 * 86400000)) + 1;
+
+  return data.weeks.find(w => w.number === weekNumber) || data.weeks[0];
 }
-
 // ==== РЕНДЕР ====
 function renderWeekInfo(week) {
   const el = document.getElementById('week-info');
