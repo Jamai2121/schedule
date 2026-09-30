@@ -130,6 +130,28 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
 });
 
+// ==== ТЕМА ====
+(function initTheme() {
+  const btn = document.getElementById('theme-toggle');
+  const saved = localStorage.getItem('theme');
+
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const initial = saved || (prefersDark ? 'dark' : 'light');
+  applyTheme(initial);
+
+  btn.addEventListener('click', () => {
+    const next = document.body.classList.contains('dark') ? 'light' : 'dark';
+    applyTheme(next);
+    localStorage.setItem('theme', next);
+  });
+
+  function applyTheme(theme) {
+    const isDark = theme === 'dark';
+    document.body.classList.toggle('dark', isDark);
+    btn.textContent = isDark ? '☀️' : '🌙';
+  }
+})();
+
 // ==== СТАРТ ====
 (async function init() {
   const status = document.getElementById('status');
