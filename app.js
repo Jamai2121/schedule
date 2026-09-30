@@ -36,6 +36,7 @@ function detectCurrentWeek(data) {
 
   return data.weeks.find(w => w.number === weekNumber) || data.weeks[0];
 }
+
 // ==== РЕНДЕР ====
 function renderWeekInfo(week) {
   const el = document.getElementById('week-info');
