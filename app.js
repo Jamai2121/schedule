@@ -12,7 +12,7 @@ const JS_DAY_TO_KEY = ['sunday','monday','tuesday','wednesday','thursday','frida
 
 const DAY_ORDER = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
 
-// ==== ЗАГРУЗКА JSON (локально, без прокси) ====
+// ==== ЗАГРУЗКА JSON ====
 async function fetchSchedule() {
   const res = await fetch('./schedule.json', { cache: 'no-store' });
   if (!res.ok) throw new Error('Не удалось загрузить schedule.json');
@@ -27,7 +27,6 @@ function detectCurrentWeek(data) {
   const start = new Date(now.getFullYear(), 8, 1); // 8 = сентябрь
   start.setHours(0, 0, 0, 0);
 
-  // Если сейчас январь–август, значит семестр начался в прошлом году
   if (now < start) {
     start.setFullYear(start.getFullYear() - 1);
   }
