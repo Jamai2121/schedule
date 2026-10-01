@@ -115,7 +115,7 @@ function getPairStatus(pair) {
 function countUniqueSlots(pairs) {
   const slots = new Set();
   pairs.forEach(p => {
-    slots.add(`${p.time || ''}|${p.subject || ''}`);
+    slots.add(p.time || '');
   });
   return slots.size;
 }
