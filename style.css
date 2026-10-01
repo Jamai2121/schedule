@@ -115,6 +115,29 @@ body.dark .week-info .parity.even { color: #60a5fa; }
 .nav-btn:hover { background: var(--hover); }
 .nav-btn:active { transform: scale(0.96); }
 
+/* Фильтр подгруппы */
+.subgroup-filter {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.sg-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s, color 0.15s;
+}
+.sg-btn:hover { background: var(--hover); color: var(--text); }
+.sg-btn.active { background: var(--border-today); color: #fff; }
+
 .schedule {
   max-width: 900px;
   margin: 0 auto;
@@ -145,16 +168,35 @@ body.dark .week-info .parity.even { color: #60a5fa; }
   padding: 10px 12px;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, opacity 0.15s;
   align-items: flex-start;
+  position: relative;
+  overflow: hidden;
 }
 .pair:hover { background: var(--hover); }
 
 .pair.cancelled .pair-subject,
 .pair.cancelled .pair-time { text-decoration: line-through; opacity: 0.5; }
 
-.pair.current { background: #fef3c7; }
+/* Прошедшие пары */
+.pair.past {
+  opacity: 0.45;
+}
+
+/* Текущая пара */
+.pair.current {
+  background: #fef3c7;
+}
 body.dark .pair.current { background: #3a2f10; }
+
+.pair-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  background: #22c55e;
+  transition: width 1s linear;
+}
 
 .pair-time {
   font-variant-numeric: tabular-nums;
@@ -295,4 +337,6 @@ body.dark .pair-note { background: #4a1c1c; color: #fca5a5; }
   body { padding: 16px; }
   h1 { font-size: 22px; }
   .icon-btn { width: 40px; height: 40px; font-size: 18px; }
+  .nav-btn { padding: 6px 12px; font-size: 13px; }
+  .sg-btn { padding: 5px 10px; font-size: 11px; }
 }
