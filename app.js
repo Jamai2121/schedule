@@ -69,9 +69,11 @@ function applyOverrides(weekNumber, pairs) {
     if (o.action === 'cancel') cancelIds.add(o.id);
     if (o.action === 'note') notes[o.id] = o.note;
   });
-  return pairs
-    .filter(p => !cancelIds.has(p.id))
-    .map(p => ({ ...p, note: notes[p.id] || null }));
+  return pairs.map(p => ({
+    ...p,
+    note: notes[p.id] || null,
+    cancelled: cancelIds.has(p.id),
+  }));
 }
 
 // ==== ВРЕМЯ ====
@@ -111,7 +113,7 @@ function getPairStatus(pair) {
 }
 
 // ==== СЧЁТЧИК ПАР ====
-// Склеивает параллели разных подгрупп (одинаковое время + одинаковое название = 1 слот)
+// Склеивает параллели разных подгрупп (одинаковое время = 1 слот)
 function countUniqueSlots(pairs) {
   const slots = new Set();
   pairs.forEach(p => {
@@ -190,6 +192,8 @@ function renderSchedule(weekNumber) {
 function renderPair(pair, homework, isCurrentWeek) {
   const el = document.createElement('div');
   el.className = 'pair';
+
+  if (pair.cancelled) el.classList.add('cancelled');
 
   if (isCurrentWeek) {
     const { status, progress } = getPairStatus(pair);
