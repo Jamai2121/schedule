@@ -175,9 +175,6 @@ body.dark .week-info .parity.even { color: #60a5fa; }
 }
 .pair:hover { background: var(--hover); }
 
-.pair.cancelled .pair-subject,
-.pair.cancelled .pair-time { text-decoration: line-through; opacity: 0.5; }
-
 /* Прошедшие пары */
 .pair.past {
   opacity: 0.45;
@@ -245,6 +242,34 @@ body.dark .pair.current { background: #3a2f10; }
   font-weight: 600;
 }
 body.dark .pair-note { background: #4a1c1c; color: #fca5a5; }
+
+/* Отменённые пары */
+.pair.cancelled {
+  opacity: 0.55;
+  background: #fee2e2;
+}
+body.dark .pair.cancelled {
+  background: #3a1c1c;
+}
+
+.pair.cancelled .pair-subject {
+  text-decoration: line-through;
+}
+
+.pair.cancelled::after {
+  content: 'отменено';
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
 
 .empty {
   color: var(--muted-2);
