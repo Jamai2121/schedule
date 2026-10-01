@@ -1,6 +1,5 @@
 {
   "5": [
-    { "action": "cancel", "id": "odd-fri-1"}
-    { "action": "note",   "id": "odd-fri-2", "note": "Пары не будет" }
+    { "action": "note", "id": "odd-fri-2", "note": "Пара тю-тю" }
   ]
 }
