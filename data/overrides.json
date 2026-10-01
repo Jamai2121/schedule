@@ -1,6 +1,6 @@
 {
   "5": [
     { "action": "cancel", "id": "odd-fri-1" },
-    { "action": "note", "id": "odd-fri-2", "note": "Пара тю-тю" }
+    { "action": "cancel", "id": "odd-fri-2" }
   ]
 }
