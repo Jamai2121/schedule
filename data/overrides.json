@@ -1,6 +1,6 @@
 {
   "5": [
-    { "action": "cancel", "id": "odd-wed-1" },
-    { "action": "note",   "id": "odd-fri-2", "note": "Перенос в ауд. 8105" }
+    { "action": "cancel", "id": "odd-wed-1" "note": "Пары не будет"  },
+    { "action": "note",   "id": "odd-fri-2", "note": "Пары не будет" }
   ]
 }
