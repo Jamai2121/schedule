@@ -9,52 +9,92 @@ const DAY_NAMES = {
   saturday: 'Суббота'
 };
 const JS_DAY_TO_KEY = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-
 const DAY_ORDER = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
 
-// ==== ЗАГРУЗКА JSON ====
-async function fetchSchedule() {
-  const res = await fetch('./schedule.json', { cache: 'no-store' });
-  if (!res.ok) throw new Error('Не удалось загрузить schedule.json');
+const START_OF_SEMESTER = { month: 8, day: 1 }; // 8 = сентябрь
+
+// ==== СОСТОЯНИЕ ====
+let DATA = {
+  schedule: null,
+  homework: null,
+  books: null,
+  info: null,
+  overrides: null,
+};
+let currentWeekOffset = 0; // 0 = текущая неделя, -1 = прошлая, +1 = следующая
+
+// ==== ЗАГРУЗКА ====
+async function loadJSON(path) {
+  const res = await fetch(path, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Не удалось загрузить ${path}`);
   return res.json();
 }
 
-// ==== ОПРЕДЕЛЕНИЕ ТЕКУЩЕЙ НЕДЕЛИ (от 1 сентября) ====
-function detectCurrentWeek(data) {
+async function loadAll() {
+  const [schedule, homework, books, info, overrides] = await Promise.all([
+    loadJSON('./data/schedule.json'),
+    loadJSON('./data/homework.json').catch(() => ({})),
+    loadJSON('./data/books.json').catch(() => ({})),
+    loadJSON('./data/info.json').catch(() => ({ items: [] })),
+    loadJSON('./data/overrides.json').catch(() => ({})),
+  ]);
+  DATA = { schedule, homework, books, info, overrides };
+}
+
+// ==== НЕДЕЛИ ====
+function getWeekNumber(offset = 0) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
-  const start = new Date(now.getFullYear(), 8, 1); // 8 = сентябрь
+  const start = new Date(now.getFullYear(), START_OF_SEMESTER.month, START_OF_SEMESTER.day);
   start.setHours(0, 0, 0, 0);
+  if (now < start) start.setFullYear(start.getFullYear() - 1);
 
-  if (now < start) {
-    start.setFullYear(start.getFullYear() - 1);
-  }
+  const base = Math.floor((now - start) / (7 * 86400000)) + 1;
+  return base + offset;
+}
 
-  const weekNumber = Math.floor((now - start) / (7 * 86400000)) + 1;
+function getParity(weekNumber) {
+  return weekNumber % 2 === 1 ? 'odd' : 'even';
+}
 
-  return data.weeks.find(w => w.number === weekNumber) || data.weeks[0];
+// ==== OVERRIDES ====
+function applyOverrides(weekNumber, pairs) {
+  const list = DATA.overrides[String(weekNumber)] || [];
+  const cancelIds = new Set();
+  const notes = {};
+  list.forEach(o => {
+    if (o.action === 'cancel') cancelIds.add(o.id);
+    if (o.action === 'note') notes[o.id] = o.note;
+  });
+  return pairs
+    .filter(p => !cancelIds.has(p.id))
+    .map(p => ({ ...p, note: notes[p.id] || null }));
 }
 
 // ==== РЕНДЕР ====
-function renderWeekInfo(week) {
+function renderHeader(weekNumber) {
+  const parity = getParity(weekNumber);
   const el = document.getElementById('week-info');
-  const parityText = week.parity === 'even' ? 'чётная' : 'нечётная';
-  const parityClass = week.parity === 'even' ? 'even' : 'odd';
-  el.innerHTML = `Неделя №${week.number}<span class="parity ${parityClass}">· ${parityText}</span>`;
+  const parityText = parity === 'even' ? 'чётная' : 'нечётная';
+  el.innerHTML = `Неделя №${weekNumber}<span class="parity ${parity}">· ${parityText}</span>`;
 }
 
-function renderSchedule(week) {
+function renderSchedule(weekNumber) {
+  const parity = getParity(weekNumber);
   const container = document.getElementById('schedule');
   container.innerHTML = '';
 
   const todayKey = JS_DAY_TO_KEY[new Date().getDay()];
+  const isCurrentWeek = currentWeekOffset === 0;
+  const hw = DATA.homework[String(weekNumber)] || {};
 
   DAY_ORDER.forEach(dayKey => {
-    const pairs = week.days[dayKey] || [];
+    const basePairs = (DATA.schedule[parity] && DATA.schedule[parity][dayKey]) || [];
+    const pairs = applyOverrides(weekNumber, basePairs);
 
     const dayEl = document.createElement('div');
-    dayEl.className = 'day' + (dayKey === todayKey ? ' today' : '');
+    dayEl.className = 'day' + (isCurrentWeek && dayKey === todayKey ? ' today' : '');
 
     const title = document.createElement('div');
     title.className = 'day-title';
@@ -68,7 +108,7 @@ function renderSchedule(week) {
       dayEl.appendChild(empty);
     } else {
       pairs.forEach(pair => {
-        dayEl.appendChild(renderPair(pair));
+        dayEl.appendChild(renderPair(pair, hw[pair.id] || ''));
       });
     }
 
@@ -76,7 +116,7 @@ function renderSchedule(week) {
   });
 }
 
-function renderPair(pair) {
+function renderPair(pair, homework) {
   const el = document.createElement('div');
   el.className = 'pair';
 
@@ -98,72 +138,72 @@ function renderPair(pair) {
     sg.textContent = `Подгруппа ${pair.subgroup}`;
     subject.appendChild(sg);
   }
-
+  if (pair.note) {
+    const note = document.createElement('span');
+    note.className = 'pair-note';
+    note.textContent = pair.note;
+    subject.appendChild(note);
+  }
   info.appendChild(subject);
+
+  if (pair.teacher) {
+    const t = document.createElement('div');
+    t.className = 'pair-teacher';
+    t.textContent = pair.teacher;
+    info.appendChild(t);
+  }
+  if (pair.room) {
+    const r = document.createElement('div');
+    r.className = 'pair-room';
+    r.textContent = 'ауд. ' + pair.room;
+    info.appendChild(r);
+  }
+
   el.appendChild(info);
 
-  el.addEventListener('click', () => openModal(pair));
-
+  el.addEventListener('click', () => openPairModal(pair, homework));
   return el;
 }
 
-// ==== МОДАЛКА ====
-function openModal(pair) {
+// ==== МОДАЛКА ПАРЫ ====
+function openPairModal(pair, homework) {
   document.getElementById('modal-title').textContent = pair.subject || 'Пара';
-  document.getElementById('modal-meta').textContent =
-    [pair.time, pair.subgroup ? `Подгруппа ${pair.subgroup}` : null]
-      .filter(Boolean).join(' · ');
-  document.getElementById('modal-homework').textContent =
-    pair.homework || 'Домашнее задание не указано';
+  const meta = [pair.time, pair.room ? `ауд. ${pair.room}` : null, pair.subgroup ? `Подгруппа ${pair.subgroup}` : null]
+    .filter(Boolean).join(' · ');
+  document.getElementById('modal-meta').textContent = meta;
+  const parts = [];
+  if (pair.teacher) parts.push(pair.teacher);
+  if (homework) parts.push('\n\nДомашнее задание:\n' + homework);
+  document.getElementById('modal-homework').textContent = homework || 'Домашнее задание не указано';
   document.getElementById('modal').classList.remove('hidden');
 }
 
-function closeModal() {
-  document.getElementById('modal').classList.add('hidden');
+// ==== МОДАЛКА КНИГ ====
+function renderBooks() {
+  const body = document.getElementById('books-body');
+  body.innerHTML = '';
+  const subjects = Object.keys(DATA.books);
+  if (subjects.length === 0) {
+    body.textContent = 'Список учебников пуст';
+    return;
+  }
+  subjects.forEach(subject => {
+    const group = document.createElement('div');
+    group.className = 'book-group';
+    const h = document.createElement('h3');
+    h.textContent = subject;
+    group.appendChild(h);
+    DATA.books[subject].forEach(b => {
+      const a = document.createElement('a');
+      a.className = 'book-link';
+      a.href = b.url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.textContent = b.title || 'Скачать';
+      group.appendChild(a);
+    });
+    body.appendChild(group);
+  });
 }
 
-document.getElementById('modal-close').addEventListener('click', closeModal);
-document.getElementById('modal').addEventListener('click', e => {
-  if (e.target.id === 'modal') closeModal();
-});
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeModal();
-});
-
-// ==== ТЕМА ====
-(function initTheme() {
-  const btn = document.getElementById('theme-toggle');
-  const saved = localStorage.getItem('theme');
-
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const initial = saved || (prefersDark ? 'dark' : 'light');
-  applyTheme(initial);
-
-  btn.addEventListener('click', () => {
-    const next = document.body.classList.contains('dark') ? 'light' : 'dark';
-    applyTheme(next);
-    localStorage.setItem('theme', next);
-  });
-
-  function applyTheme(theme) {
-    const isDark = theme === 'dark';
-    document.body.classList.toggle('dark', isDark);
-    btn.textContent = isDark ? '☀️' : '🌙';
-  }
-})();
-
-// ==== СТАРТ ====
-(async function init() {
-  const status = document.getElementById('status');
-  try {
-    status.textContent = 'Загружаем расписание…';
-    const data = await fetchSchedule();
-    const week = detectCurrentWeek(data);
-    renderWeekInfo(week);
-    renderSchedule(week);
-    status.textContent = `Обновлено: ${new Date().toLocaleTimeString('ru-RU')}`;
-  } catch (err) {
-    console.error(err);
-    status.textContent = 'Ошибка загрузки: ' + err.message;
-  }
-})();
+// ==== МОДАЛКА ИНФО ===
