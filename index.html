@@ -8,26 +8,55 @@
 </head>
 <body>
   <header>
-  <button id="theme-toggle" class="theme-toggle" aria-label="Сменить тему">🌙</button>
-  <h1>Расписание</h1>
-  <div id="week-info" class="week-info">Загрузка…</div>
-</header>
+    <div class="header-top">
+      <button id="theme-toggle" class="icon-btn" aria-label="Сменить тему">🌙</button>
+      <div class="header-actions">
+        <button id="info-btn" class="icon-btn" aria-label="Важная информация">❗</button>
+        <button id="books-btn" class="icon-btn" aria-label="Учебники">📚</button>
+      </div>
+    </div>
+    <h1>Расписание</h1>
+    <div id="week-info" class="week-info">Загрузка…</div>
+    <div class="week-nav">
+      <button id="prev-week" class="nav-btn">←</button>
+      <button id="today-week" class="nav-btn">Сегодня</button>
+      <button id="next-week" class="nav-btn">→</button>
+    </div>
+  </header>
 
   <main>
     <div id="schedule" class="schedule"></div>
     <div id="status" class="status"></div>
   </main>
 
-  <!-- Модалка для Д/З -->
+  <!-- Модалка пары -->
   <div id="modal" class="modal hidden">
     <div class="modal-content">
-      <button class="modal-close" id="modal-close">×</button>
+      <button class="modal-close" data-close="modal">×</button>
       <h2 id="modal-title"></h2>
       <p id="modal-meta" class="modal-meta"></p>
       <div class="modal-body">
         <strong>Домашнее задание:</strong>
         <p id="modal-homework"></p>
       </div>
+    </div>
+  </div>
+
+  <!-- Модалка учебников -->
+  <div id="books-modal" class="modal hidden">
+    <div class="modal-content">
+      <button class="modal-close" data-close="books-modal">×</button>
+      <h2>Учебники</h2>
+      <div id="books-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Модалка информации -->
+  <div id="info-modal" class="modal hidden">
+    <div class="modal-content">
+      <button class="modal-close" data-close="info-modal">×</button>
+      <h2>Важная информация</h2>
+      <div id="info-body" class="modal-body"></div>
     </div>
   </div>
 
