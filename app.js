@@ -12,6 +12,7 @@ const JS_DAY_TO_KEY = ['sunday','monday','tuesday','wednesday','thursday','frida
 const DAY_ORDER = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
 
 const START_OF_SEMESTER = { month: 8, day: 1 }; // 8 = сентябрь
+const PAIR_DURATION_MIN = 95; // длительность пары в минутах
 
 // ==== СОСТОЯНИЕ ====
 let DATA = {
@@ -22,6 +23,7 @@ let DATA = {
   overrides: {},
 };
 let currentWeekOffset = 0;
+let subgroupFilter = localStorage.getItem('subgroup') || 'all';
 
 // ==== ЗАГРУЗКА ====
 async function loadJSON(path) {
@@ -72,6 +74,32 @@ function applyOverrides(weekNumber, pairs) {
     .map(p => ({ ...p, note: notes[p.id] || null }));
 }
 
+// ==== ВРЕМЯ ====
+function timeToMinutes(t) {
+  if (!t) return null;
+  const [h, m] = t.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+function nowMinutes() {
+  const d = new Date();
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function getPairStatus(pair) {
+  const start = timeToMinutes(pair.time);
+  if (start === null) return { status: 'unknown', progress: 0 };
+  const end = start + PAIR_DURATION_MIN;
+  const now = nowMinutes();
+  if (now >= end) return { status: 'past', progress: 100 };
+  if (now >= start) {
+    const progress = Math.round(((now - start) / PAIR_DURATION_MIN) * 100);
+    return { status: 'current', progress };
+  }
+  return { status: 'future', progress: 0 };
+}
+
 // ==== РЕНДЕР ====
 function renderHeader(weekNumber) {
   const parity = getParity(weekNumber);
@@ -91,14 +119,24 @@ function renderSchedule(weekNumber) {
 
   DAY_ORDER.forEach(dayKey => {
     const basePairs = (DATA.schedule[parity] && DATA.schedule[parity][dayKey]) || [];
-    const pairs = applyOverrides(weekNumber, basePairs);
+    let pairs = applyOverrides(weekNumber, basePairs);
+
+    // Фильтр по подгруппе
+    if (subgroupFilter !== 'all') {
+      const sg = Number(subgroupFilter);
+      pairs = pairs.filter(p => !p.subgroup || p.subgroup === sg);
+    }
 
     const dayEl = document.createElement('div');
     dayEl.className = 'day' + (isCurrentWeek && dayKey === todayKey ? ' today' : '');
+    dayEl.dataset.day = dayKey;
 
     const title = document.createElement('div');
     title.className = 'day-title';
-    title.textContent = DAY_NAMES[dayKey];
+    const pairsWord = pairs.length === 1 ? 'пара' : (pairs.length >= 2 && pairs.length <= 4 ? 'пары' : 'пар');
+    title.textContent = pairs.length > 0
+      ? `${DAY_NAMES[dayKey]} · ${pairs.length} ${pairsWord}`
+      : DAY_NAMES[dayKey];
     dayEl.appendChild(title);
 
     if (pairs.length === 0) {
@@ -108,17 +146,40 @@ function renderSchedule(weekNumber) {
       dayEl.appendChild(empty);
     } else {
       pairs.forEach(pair => {
-        dayEl.appendChild(renderPair(pair, hw[pair.id] || ''));
+        dayEl.appendChild(renderPair(pair, hw[pair.id] || '', isCurrentWeek));
       });
     }
 
     container.appendChild(dayEl);
   });
+
+  // Автопрокрутка к сегодняшнему дню
+  if (isCurrentWeek) {
+    const todayEl = container.querySelector('.day.today');
+    if (todayEl) {
+      setTimeout(() => {
+        todayEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }
 }
 
-function renderPair(pair, homework) {
+function renderPair(pair, homework, isCurrentWeek) {
   const el = document.createElement('div');
   el.className = 'pair';
+
+  if (isCurrentWeek) {
+    const { status, progress } = getPairStatus(pair);
+    if (status === 'past') el.classList.add('past');
+    if (status === 'current') {
+      el.classList.add('current');
+      // прогресс-бар
+      const bar = document.createElement('div');
+      bar.className = 'pair-progress';
+      bar.style.width = progress + '%';
+      el.appendChild(bar);
+    }
+  }
 
   const time = document.createElement('div');
   time.className = 'pair-time';
@@ -279,6 +340,22 @@ document.getElementById('today-week').addEventListener('click', () => {
   refresh();
 });
 
+// ==== ФИЛЬТР ПОДГРУППЫ ====
+function initSubgroupFilter() {
+  const btns = document.querySelectorAll('.sg-btn');
+  btns.forEach(btn => {
+    if (btn.dataset.sg === subgroupFilter) btn.classList.add('active');
+    else btn.classList.remove('active');
+
+    btn.addEventListener('click', () => {
+      subgroupFilter = btn.dataset.sg;
+      localStorage.setItem('subgroup', subgroupFilter);
+      btns.forEach(b => b.classList.toggle('active', b.dataset.sg === subgroupFilter));
+      refresh();
+    });
+  });
+}
+
 // ==== ТЕМА ====
 (function initTheme() {
   const btn = document.getElementById('theme-toggle');
@@ -313,8 +390,12 @@ function refresh() {
   try {
     status.textContent = 'Загружаем расписание…';
     await loadAll();
+    initSubgroupFilter();
     refresh();
     status.textContent = `Обновлено: ${new Date().toLocaleTimeString('ru-RU')}`;
+
+    // Обновляем каждую минуту, чтобы прогресс-бар двигался
+    setInterval(refresh, 60000);
   } catch (err) {
     console.error(err);
     status.textContent = 'Ошибка загрузки: ' + err.message;
