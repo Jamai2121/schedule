@@ -82,6 +82,16 @@ function timeToMinutes(t) {
   return h * 60 + m;
 }
 
+function formatTime(start) {
+  if (!start) return '';
+  const startMin = timeToMinutes(start);
+  if (startMin === null) return start;
+  const endMin = startMin + PAIR_DURATION_MIN;
+  const endH = String(Math.floor(endMin / 60)).padStart(2, '0');
+  const endM = String(endMin % 60).padStart(2, '0');
+  return `${start} – ${endH}:${endM}`;
+}
+
 function nowMinutes() {
   const d = new Date();
   return d.getHours() * 60 + d.getMinutes();
@@ -98,6 +108,16 @@ function getPairStatus(pair) {
     return { status: 'current', progress };
   }
   return { status: 'future', progress: 0 };
+}
+
+// ==== СЧЁТЧИК ПАР ====
+// Склеивает параллели разных подгрупп (одинаковое время + одинаковое название = 1 слот)
+function countUniqueSlots(pairs) {
+  const slots = new Set();
+  pairs.forEach(p => {
+    slots.add(`${p.time || ''}|${p.subject || ''}`);
+  });
+  return slots.size;
 }
 
 // ==== РЕНДЕР ====
@@ -133,9 +153,12 @@ function renderSchedule(weekNumber) {
 
     const title = document.createElement('div');
     title.className = 'day-title';
-    const pairsWord = pairs.length === 1 ? 'пара' : (pairs.length >= 2 && pairs.length <= 4 ? 'пары' : 'пар');
-    title.textContent = pairs.length > 0
-      ? `${DAY_NAMES[dayKey]} · ${pairs.length} ${pairsWord}`
+    const displayCount = countUniqueSlots(pairs);
+    const pairsWord = displayCount === 1
+      ? 'пара'
+      : (displayCount >= 2 && displayCount <= 4 ? 'пары' : 'пар');
+    title.textContent = displayCount > 0
+      ? `${DAY_NAMES[dayKey]} · ${displayCount} ${pairsWord}`
       : DAY_NAMES[dayKey];
     dayEl.appendChild(title);
 
@@ -173,7 +196,6 @@ function renderPair(pair, homework, isCurrentWeek) {
     if (status === 'past') el.classList.add('past');
     if (status === 'current') {
       el.classList.add('current');
-      // прогресс-бар
       const bar = document.createElement('div');
       bar.className = 'pair-progress';
       bar.style.width = progress + '%';
@@ -183,7 +205,7 @@ function renderPair(pair, homework, isCurrentWeek) {
 
   const time = document.createElement('div');
   time.className = 'pair-time';
-  time.textContent = pair.time || '';
+  time.textContent = formatTime(pair.time) || '';
   el.appendChild(time);
 
   const info = document.createElement('div');
@@ -229,7 +251,7 @@ function renderPair(pair, homework, isCurrentWeek) {
 function openPairModal(pair, homework) {
   document.getElementById('modal-title').textContent = pair.subject || 'Пара';
   const meta = [
-    pair.time,
+    formatTime(pair.time),
     pair.room ? `ауд. ${pair.room}` : null,
     pair.subgroup ? `Подгруппа ${pair.subgroup}` : null,
   ].filter(Boolean).join(' · ');
@@ -394,7 +416,6 @@ function refresh() {
     refresh();
     status.textContent = `Обновлено: ${new Date().toLocaleTimeString('ru-RU')}`;
 
-    // Обновляем каждую минуту, чтобы прогресс-бар двигался
     setInterval(refresh, 60000);
   } catch (err) {
     console.error(err);
