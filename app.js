@@ -16,12 +16,12 @@ const START_OF_SEMESTER = { month: 8, day: 1 }; // 8 = сентябрь
 // ==== СОСТОЯНИЕ ====
 let DATA = {
   schedule: null,
-  homework: null,
-  books: null,
-  info: null,
-  overrides: null,
+  homework: {},
+  books: {},
+  info: { items: [] },
+  overrides: {},
 };
-let currentWeekOffset = 0; // 0 = текущая неделя, -1 = прошлая, +1 = следующая
+let currentWeekOffset = 0;
 
 // ==== ЗАГРУЗКА ====
 async function loadJSON(path) {
@@ -160,7 +160,6 @@ function renderPair(pair, homework) {
   }
 
   el.appendChild(info);
-
   el.addEventListener('click', () => openPairModal(pair, homework));
   return el;
 }
@@ -168,13 +167,14 @@ function renderPair(pair, homework) {
 // ==== МОДАЛКА ПАРЫ ====
 function openPairModal(pair, homework) {
   document.getElementById('modal-title').textContent = pair.subject || 'Пара';
-  const meta = [pair.time, pair.room ? `ауд. ${pair.room}` : null, pair.subgroup ? `Подгруппа ${pair.subgroup}` : null]
-    .filter(Boolean).join(' · ');
+  const meta = [
+    pair.time,
+    pair.room ? `ауд. ${pair.room}` : null,
+    pair.subgroup ? `Подгруппа ${pair.subgroup}` : null,
+  ].filter(Boolean).join(' · ');
   document.getElementById('modal-meta').textContent = meta;
-  const parts = [];
-  if (pair.teacher) parts.push(pair.teacher);
-  if (homework) parts.push('\n\nДомашнее задание:\n' + homework);
-  document.getElementById('modal-homework').textContent = homework || 'Домашнее задание не указано';
+  document.getElementById('modal-homework').textContent =
+    homework || 'Домашнее задание не указано';
   document.getElementById('modal').classList.remove('hidden');
 }
 
@@ -182,7 +182,7 @@ function openPairModal(pair, homework) {
 function renderBooks() {
   const body = document.getElementById('books-body');
   body.innerHTML = '';
-  const subjects = Object.keys(DATA.books);
+  const subjects = Object.keys(DATA.books || {});
   if (subjects.length === 0) {
     body.textContent = 'Список учебников пуст';
     return;
@@ -206,4 +206,117 @@ function renderBooks() {
   });
 }
 
-// ==== МОДАЛКА ИНФО ===
+// ==== МОДАЛКА ИНФО ====
+function renderInfo() {
+  const body = document.getElementById('info-body');
+  body.innerHTML = '';
+  const items = (DATA.info && DATA.info.items) || [];
+  if (items.length === 0) {
+    body.textContent = 'Пока ничего важного';
+    return;
+  }
+  items.forEach(item => {
+    const el = document.createElement('div');
+    el.className = 'info-item';
+    if (item.date) {
+      const d = document.createElement('div');
+      d.className = 'info-date';
+      d.textContent = item.date;
+      el.appendChild(d);
+    }
+    const t = document.createElement('div');
+    t.className = 'info-text';
+    t.textContent = item.text;
+    el.appendChild(t);
+    body.appendChild(el);
+  });
+}
+
+// ==== ЗАКРЫТИЕ МОДАЛОК ====
+function closeModalById(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+document.querySelectorAll('[data-close]').forEach(btn => {
+  btn.addEventListener('click', () => closeModalById(btn.dataset.close));
+});
+
+document.querySelectorAll('.modal').forEach(modal => {
+  modal.addEventListener('click', e => {
+    if (e.target === modal) modal.classList.add('hidden');
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
+  }
+});
+
+// ==== КНОПКИ ====
+document.getElementById('books-btn').addEventListener('click', () => {
+  renderBooks();
+  document.getElementById('books-modal').classList.remove('hidden');
+});
+
+document.getElementById('info-btn').addEventListener('click', () => {
+  renderInfo();
+  document.getElementById('info-modal').classList.remove('hidden');
+});
+
+document.getElementById('prev-week').addEventListener('click', () => {
+  currentWeekOffset -= 1;
+  refresh();
+});
+
+document.getElementById('next-week').addEventListener('click', () => {
+  currentWeekOffset += 1;
+  refresh();
+});
+
+document.getElementById('today-week').addEventListener('click', () => {
+  currentWeekOffset = 0;
+  refresh();
+});
+
+// ==== ТЕМА ====
+(function initTheme() {
+  const btn = document.getElementById('theme-toggle');
+  const saved = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const initial = saved || (prefersDark ? 'dark' : 'light');
+  applyTheme(initial);
+
+  btn.addEventListener('click', () => {
+    const next = document.body.classList.contains('dark') ? 'light' : 'dark';
+    applyTheme(next);
+    localStorage.setItem('theme', next);
+  });
+
+  function applyTheme(theme) {
+    const isDark = theme === 'dark';
+    document.body.classList.toggle('dark', isDark);
+    btn.textContent = isDark ? '☀️' : '🌙';
+  }
+})();
+
+// ==== ОБНОВЛЕНИЕ ====
+function refresh() {
+  const weekNumber = getWeekNumber(currentWeekOffset);
+  renderHeader(weekNumber);
+  renderSchedule(weekNumber);
+}
+
+// ==== СТАРТ ====
+(async function init() {
+  const status = document.getElementById('status');
+  try {
+    status.textContent = 'Загружаем расписание…';
+    await loadAll();
+    refresh();
+    status.textContent = `Обновлено: ${new Date().toLocaleTimeString('ru-RU')}`;
+  } catch (err) {
+    console.error(err);
+    status.textContent = 'Ошибка загрузки: ' + err.message;
+  }
+})();
