@@ -42,18 +42,24 @@ body {
 }
 
 header {
-  position: relative;
   max-width: 900px;
   margin: 0 auto 24px;
   text-align: center;
 }
 
-h1 { font-size: 28px; margin-bottom: 8px; }
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
 
-.theme-toggle {
-  position: absolute;
-  right: 0;
-  top: 0;
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -63,13 +69,15 @@ h1 { font-size: 28px; margin-bottom: 8px; }
   font-size: 20px;
   cursor: pointer;
   box-shadow: var(--shadow-sm);
-  transition: transform 0.15s, background 0.25s;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.15s, background 0.25s;
 }
-.theme-toggle:hover { transform: scale(1.08); }
-.theme-toggle:active { transform: scale(0.95); }
+.icon-btn:hover { transform: scale(1.08); }
+.icon-btn:active { transform: scale(0.95); }
+
+h1 { font-size: 28px; margin-bottom: 12px; }
 
 .week-info {
   display: inline-block;
@@ -78,17 +86,34 @@ h1 { font-size: 28px; margin-bottom: 8px; }
   border-radius: 999px;
   font-size: 14px;
   box-shadow: var(--shadow-sm);
-  transition: background 0.25s;
+  margin-bottom: 12px;
 }
 
-.week-info .parity {
-  font-weight: 700;
-  margin-left: 6px;
-}
+.week-info .parity { font-weight: 700; margin-left: 6px; }
 .week-info .parity.odd { color: #d97706; }
 .week-info .parity.even { color: #2563eb; }
 body.dark .week-info .parity.odd { color: #fbbf24; }
 body.dark .week-info .parity.even { color: #60a5fa; }
+
+.week-nav {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.nav-btn {
+  padding: 8px 16px;
+  background: var(--card);
+  color: var(--text);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 14px;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s, transform 0.1s;
+}
+.nav-btn:hover { background: var(--hover); }
+.nav-btn:active { transform: scale(0.96); }
 
 .schedule {
   max-width: 900px;
@@ -103,7 +128,6 @@ body.dark .week-info .parity.even { color: #60a5fa; }
   border-radius: 12px;
   padding: 16px 20px;
   box-shadow: var(--shadow);
-  transition: background 0.25s;
 }
 
 .day-title {
@@ -113,9 +137,7 @@ body.dark .week-info .parity.even { color: #60a5fa; }
   color: var(--title);
 }
 
-.day.today {
-  border-left: 4px solid var(--border-today);
-}
+.day.today { border-left: 4px solid var(--border-today); }
 
 .pair {
   display: flex;
@@ -127,6 +149,12 @@ body.dark .week-info .parity.even { color: #60a5fa; }
   align-items: flex-start;
 }
 .pair:hover { background: var(--hover); }
+
+.pair.cancelled .pair-subject,
+.pair.cancelled .pair-time { text-decoration: line-through; opacity: 0.5; }
+
+.pair.current { background: #fef3c7; }
+body.dark .pair.current { background: #3a2f10; }
 
 .pair-time {
   font-variant-numeric: tabular-nums;
@@ -140,6 +168,19 @@ body.dark .week-info .parity.even { color: #60a5fa; }
 
 .pair-subject { font-weight: 600; margin-bottom: 2px; }
 
+.pair-teacher {
+  font-size: 12px;
+  color: var(--muted);
+  opacity: 0.75;
+  margin-top: 2px;
+}
+
+.pair-room {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
 .pair-subgroup {
   display: inline-block;
   font-size: 11px;
@@ -150,6 +191,18 @@ body.dark .week-info .parity.even { color: #60a5fa; }
   margin-left: 6px;
   font-weight: 600;
 }
+
+.pair-note {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
+  margin-left: 6px;
+  font-weight: 600;
+}
+body.dark .pair-note { background: #4a1c1c; color: #fca5a5; }
 
 .empty {
   color: var(--muted-2);
@@ -164,7 +217,7 @@ body.dark .week-info .parity.even { color: #60a5fa; }
   font-size: 13px;
 }
 
-/* Модалка */
+/* Модалки */
 .modal {
   position: fixed;
   inset: 0;
@@ -175,7 +228,6 @@ body.dark .week-info .parity.even { color: #60a5fa; }
   padding: 20px;
   z-index: 100;
 }
-
 .modal.hidden { display: none; }
 
 .modal-content {
@@ -185,9 +237,10 @@ body.dark .week-info .parity.even { color: #60a5fa; }
   padding: 24px;
   max-width: 500px;
   width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
   position: relative;
   box-shadow: 0 20px 60px rgba(0,0,0,0.35);
-  transition: background 0.25s;
 }
 
 .modal-close {
@@ -203,7 +256,7 @@ body.dark .week-info .parity.even { color: #60a5fa; }
 }
 .modal-close:hover { color: var(--text); }
 
-.modal-content h2 { font-size: 20px; margin-bottom: 6px; }
+.modal-content h2 { font-size: 20px; margin-bottom: 12px; }
 
 .modal-meta {
   font-size: 13px;
@@ -213,7 +266,33 @@ body.dark .week-info .parity.even { color: #60a5fa; }
 
 .modal-body p { margin-top: 6px; line-height: 1.5; }
 
-/* На узких экранах кнопка уходит влево */
+.book-group { margin-bottom: 16px; }
+.book-group h3 { font-size: 15px; margin-bottom: 6px; color: var(--title); }
+.book-link {
+  display: block;
+  padding: 8px 12px;
+  background: var(--hover);
+  color: var(--text);
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 14px;
+  margin-bottom: 4px;
+  transition: background 0.15s;
+}
+.book-link:hover { background: var(--chip-bg); color: var(--chip-text); }
+
+.info-item {
+  padding: 10px 12px;
+  border-left: 3px solid var(--border-today);
+  margin-bottom: 10px;
+  background: var(--hover);
+  border-radius: 0 8px 8px 0;
+}
+.info-date { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.info-text { font-size: 14px; line-height: 1.5; }
+
 @media (max-width: 480px) {
-  .theme-toggle { position: static; margin-bottom: 12px; }
+  body { padding: 16px; }
+  h1 { font-size: 22px; }
+  .icon-btn { width: 40px; height: 40px; font-size: 18px; }
 }
