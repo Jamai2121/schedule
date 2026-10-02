@@ -169,12 +169,12 @@ function renderSchedule(weekNumber) {
       empty.className = 'empty';
       empty.textContent = 'Пар нет';
       dayEl.appendChild(empty);
-    } else {
+      } else {
+      const isToday = isCurrentWeek && dayKey === todayKey;
       pairs.forEach(pair => {
-        dayEl.appendChild(renderPair(pair, hw[pair.id] || '', isCurrentWeek));
+        dayEl.appendChild(renderPair(pair, hw[pair.id] || '', isToday));
       });
-    }
-
+    
     container.appendChild(dayEl);
   });
 
@@ -189,13 +189,13 @@ function renderSchedule(weekNumber) {
   }
 }
 
-function renderPair(pair, homework, isCurrentWeek) {
+function renderPair(pair, homework, isToday) {
   const el = document.createElement('div');
   el.className = 'pair';
 
   if (pair.cancelled) el.classList.add('cancelled');
 
-  if (isCurrentWeek) {
+  if (isToday) {
     const { status, progress } = getPairStatus(pair);
     if (status === 'past') el.classList.add('past');
     if (status === 'current') {
