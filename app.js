@@ -11,8 +11,9 @@ const DAY_NAMES = {
 const JS_DAY_TO_KEY = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
 const DAY_ORDER = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
 
-const START_OF_SEMESTER = { month: 8, day: 1 }; // 8 = сентябрь
-const PAIR_DURATION_MIN = 95; // длительность пары в минутах
+const START_OF_SEMESTER = { month: 8, day: 1 };
+const PAIR_DURATION_MIN = 95;
+const ONLINE_COURSE_URL = 'http://open.kemsu.ru/';
 
 // ==== СОСТОЯНИЕ ====
 let DATA = {
@@ -21,6 +22,7 @@ let DATA = {
   books: {},
   info: { items: [] },
   overrides: {},
+  variants: { items: [] },
 };
 let currentWeekOffset = 0;
 let subgroupFilter = localStorage.getItem('subgroup') || 'all';
@@ -33,14 +35,15 @@ async function loadJSON(path) {
 }
 
 async function loadAll() {
-  const [schedule, homework, books, info, overrides] = await Promise.all([
+  const [schedule, homework, books, info, overrides, variants] = await Promise.all([
     loadJSON('./data/schedule.json'),
     loadJSON('./data/homework.json').catch(() => ({})),
     loadJSON('./data/books.json').catch(() => ({})),
     loadJSON('./data/info.json').catch(() => ({ items: [] })),
     loadJSON('./data/overrides.json').catch(() => ({})),
+    loadJSON('./data/variants.json').catch(() => ({ items: [] })),
   ]);
-  DATA = { schedule, homework, books, info, overrides };
+  DATA = { schedule, homework, books, info, overrides, variants };
 }
 
 // ==== НЕДЕЛИ ====
@@ -112,7 +115,6 @@ function getPairStatus(pair) {
   return { status: 'future', progress: 0 };
 }
 
-// ==== СЧЁТЧИК ПАР ====
 function countUniqueSlots(pairs) {
   const slots = new Set();
   pairs.forEach(p => {
@@ -229,6 +231,22 @@ function renderPair(pair, homework, isToday) {
     note.textContent = pair.note;
     subject.appendChild(note);
   }
+  if (homework) {
+    const hwBadge = document.createElement('span');
+    hwBadge.className = 'pair-hw';
+    hwBadge.textContent = 'ДЗ';
+    subject.appendChild(hwBadge);
+  }
+  if (pair.online) {
+    const onlineBtn = document.createElement('a');
+    onlineBtn.className = 'pair-online-btn';
+    onlineBtn.href = ONLINE_COURSE_URL;
+    onlineBtn.target = '_blank';
+    onlineBtn.rel = 'noopener';
+    onlineBtn.textContent = 'Пройти тест';
+    onlineBtn.addEventListener('click', e => e.stopPropagation());
+    subject.appendChild(onlineBtn);
+  }
   info.appendChild(subject);
 
   if (pair.teacher) {
@@ -317,6 +335,30 @@ function renderInfo() {
   });
 }
 
+// ==== МОДАЛКА ВАРИАНТОВ ====
+function renderVariants() {
+  const body = document.getElementById('variants-body');
+  body.innerHTML = '';
+  const items = (DATA.variants && DATA.variants.items) || [];
+  if (items.length === 0) {
+    body.textContent = 'Список пуст';
+    return;
+  }
+  const table = document.createElement('table');
+  table.className = 'variants-table';
+  const thead = document.createElement('thead');
+  thead.innerHTML = '<tr><th>№</th><th>Фамилия</th><th>Имя</th></tr>';
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  items.forEach(it => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="num">${it.n}</td><td>${it.last}</td><td>${it.first}</td>`;
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  body.appendChild(table);
+}
+
 // ==== ЗАКРЫТИЕ МОДАЛОК ====
 function closeModalById(id) {
   document.getElementById(id).classList.add('hidden');
@@ -347,6 +389,15 @@ document.getElementById('books-btn').addEventListener('click', () => {
 document.getElementById('info-btn').addEventListener('click', () => {
   renderInfo();
   document.getElementById('info-modal').classList.remove('hidden');
+});
+
+document.getElementById('links-btn').addEventListener('click', () => {
+  document.getElementById('links-modal').classList.remove('hidden');
+});
+
+document.getElementById('variants-btn').addEventListener('click', () => {
+  renderVariants();
+  document.getElementById('variants-modal').classList.remove('hidden');
 });
 
 document.getElementById('prev-week').addEventListener('click', () => {
