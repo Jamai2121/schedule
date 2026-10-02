@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Расписание</title>
+  <title>Расписание АМ-261</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -11,11 +11,14 @@
     <div class="header-top">
       <button id="theme-toggle" class="icon-btn" aria-label="Сменить тему">🌙</button>
       <div class="header-actions">
+        <button id="links-btn" class="icon-btn" aria-label="Полезные ссылки">🔗</button>
+        <button id="variants-btn" class="icon-btn" aria-label="Варианты">🎓</button>
         <button id="info-btn" class="icon-btn" aria-label="Важная информация">❗</button>
         <button id="books-btn" class="icon-btn" aria-label="Учебники">📚</button>
       </div>
     </div>
-    <h1>Расписание</h1>
+    <h1>Расписание АМ-261</h1>
+    <div class="subtitle">код направления: 15.03.04</div>
     <div id="week-info" class="week-info">Загрузка…</div>
     <div class="week-nav">
       <button id="prev-week" class="nav-btn">←</button>
@@ -56,12 +59,37 @@
     </div>
   </div>
 
-  <!-- Модалка информации -->
+  <!-- Модалка важной информации -->
   <div id="info-modal" class="modal hidden">
     <div class="modal-content">
       <button class="modal-close" data-close="info-modal">×</button>
       <h2>Важная информация</h2>
       <div id="info-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Модалка полезных ссылок -->
+  <div id="links-modal" class="modal hidden">
+    <div class="modal-content">
+      <button class="modal-close" data-close="links-modal">×</button>
+      <h2>Полезные ссылки</h2>
+      <div class="modal-body">
+        <a class="book-link" href="https://eios.kemsu.ru/a/umu/IIT/15.03.04/ATPiP/2026" target="_blank" rel="noopener">
+          📘 Сайт КемГУ (ЭИОС)
+        </a>
+        <a class="book-link" href="https://eios.kemsu.ru/main" target="_blank" rel="noopener">
+          🔐 Личный кабинет обучающегося
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка вариантов -->
+  <div id="variants-modal" class="modal hidden">
+    <div class="modal-content">
+      <button class="modal-close" data-close="variants-modal">×</button>
+      <h2>Варианты</h2>
+      <div id="variants-body" class="modal-body"></div>
     </div>
   </div>
 
