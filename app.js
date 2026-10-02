@@ -113,7 +113,6 @@ function getPairStatus(pair) {
 }
 
 // ==== СЧЁТЧИК ПАР ====
-// Склеивает параллели разных подгрупп (одинаковое время = 1 слот)
 function countUniqueSlots(pairs) {
   const slots = new Set();
   pairs.forEach(p => {
@@ -143,7 +142,6 @@ function renderSchedule(weekNumber) {
     const basePairs = (DATA.schedule[parity] && DATA.schedule[parity][dayKey]) || [];
     let pairs = applyOverrides(weekNumber, basePairs);
 
-    // Фильтр по подгруппе
     if (subgroupFilter !== 'all') {
       const sg = Number(subgroupFilter);
       pairs = pairs.filter(p => !p.subgroup || p.subgroup === sg);
@@ -179,7 +177,6 @@ function renderSchedule(weekNumber) {
     container.appendChild(dayEl);
   });
 
-  // Автопрокрутка к сегодняшнему дню
   if (isCurrentWeek) {
     const todayEl = container.querySelector('.day.today');
     if (todayEl) {
