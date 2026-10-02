@@ -57,6 +57,8 @@ header {
 .header-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .icon-btn {
@@ -77,7 +79,13 @@ header {
 .icon-btn:hover { transform: scale(1.08); }
 .icon-btn:active { transform: scale(0.95); }
 
-h1 { font-size: 28px; margin-bottom: 12px; }
+h1 { font-size: 28px; margin-bottom: 4px; }
+
+.subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
 
 .week-info {
   display: inline-block;
@@ -115,7 +123,6 @@ body.dark .week-info .parity.even { color: #60a5fa; }
 .nav-btn:hover { background: var(--hover); }
 .nav-btn:active { transform: scale(0.96); }
 
-/* Фильтр подгруппы */
 .subgroup-filter {
   display: flex;
   justify-content: center;
@@ -175,15 +182,9 @@ body.dark .week-info .parity.even { color: #60a5fa; }
 }
 .pair:hover { background: var(--hover); }
 
-/* Прошедшие пары */
-.pair.past {
-  opacity: 0.45;
-}
+.pair.past { opacity: 0.45; }
 
-/* Текущая пара */
-.pair.current {
-  background: #fef3c7;
-}
+.pair.current { background: #fef3c7; }
 body.dark .pair.current { background: #3a2f10; }
 
 .pair-progress {
@@ -199,7 +200,7 @@ body.dark .pair.current { background: #3a2f10; }
   font-variant-numeric: tabular-nums;
   font-size: 13px;
   color: var(--muted);
-  min-width: 48px;
+  min-width: 110px;
   padding-top: 2px;
 }
 
@@ -220,42 +221,55 @@ body.dark .pair.current { background: #3a2f10; }
   margin-top: 2px;
 }
 
-.pair-subgroup {
+/* Бейджи */
+.pair-subgroup,
+.pair-note,
+.pair-hw,
+.pair-online-btn {
   display: inline-block;
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: var(--chip-bg);
-  color: var(--chip-text);
   margin-left: 6px;
   font-weight: 600;
+  vertical-align: middle;
 }
 
-.pair-note {
-  display: inline-block;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: #fee2e2;
-  color: #991b1b;
-  margin-left: 6px;
-  font-weight: 600;
-}
+.pair-subgroup { background: var(--chip-bg); color: var(--chip-text); }
+
+.pair-note { background: #fee2e2; color: #991b1b; }
 body.dark .pair-note { background: #4a1c1c; color: #fca5a5; }
 
-/* Отменённые пары */
+/* Бейдж ДЗ */
+.pair-hw {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+body.dark .pair-hw {
+  background: #3a2f10;
+  color: #fbbf24;
+  border-color: #78350f;
+}
+
+/* Кнопка онлайн-курса */
+.pair-online-btn {
+  background: #dbeafe;
+  color: #1e40af;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pair-online-btn:hover { background: #bfdbfe; }
+body.dark .pair-online-btn { background: #1e3a8a; color: #bfdbfe; }
+body.dark .pair-online-btn:hover { background: #1e40af; }
+
 .pair.cancelled {
   opacity: 0.55;
   background: #fee2e2;
 }
-body.dark .pair.cancelled {
-  background: #3a1c1c;
-}
-
-.pair.cancelled .pair-subject {
-  text-decoration: line-through;
-}
-
+body.dark .pair.cancelled { background: #3a1c1c; }
+.pair.cancelled .pair-subject { text-decoration: line-through; }
 .pair.cancelled::after {
   content: 'отменено';
   position: absolute;
@@ -337,13 +351,13 @@ body.dark .pair.cancelled {
 .book-group h3 { font-size: 15px; margin-bottom: 6px; color: var(--title); }
 .book-link {
   display: block;
-  padding: 8px 12px;
+  padding: 10px 14px;
   background: var(--hover);
   color: var(--text);
   border-radius: 8px;
   text-decoration: none;
   font-size: 14px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   transition: background 0.15s;
 }
 .book-link:hover { background: var(--chip-bg); color: var(--chip-text); }
@@ -358,10 +372,39 @@ body.dark .pair.cancelled {
 .info-date { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 .info-text { font-size: 14px; line-height: 1.5; }
 
+/* Таблица вариантов */
+.variants-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.variants-table th,
+.variants-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--hover);
+}
+.variants-table th {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.variants-table tr:hover { background: var(--hover); }
+.variants-table .num {
+  font-weight: 700;
+  color: var(--border-today);
+  width: 40px;
+}
+
 @media (max-width: 480px) {
   body { padding: 16px; }
-  h1 { font-size: 22px; }
-  .icon-btn { width: 40px; height: 40px; font-size: 18px; }
+  h1 { font-size: 20px; }
+  .subtitle { font-size: 11px; }
+  .icon-btn { width: 38px; height: 38px; font-size: 16px; }
   .nav-btn { padding: 6px 12px; font-size: 13px; }
   .sg-btn { padding: 5px 10px; font-size: 11px; }
+  .pair-time { min-width: 92px; font-size: 12px; }
+  .header-actions { gap: 6px; }
 }
