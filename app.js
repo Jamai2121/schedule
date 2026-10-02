@@ -169,12 +169,13 @@ function renderSchedule(weekNumber) {
       empty.className = 'empty';
       empty.textContent = 'Пар нет';
       dayEl.appendChild(empty);
-      } else {
+    } else {
       const isToday = isCurrentWeek && dayKey === todayKey;
       pairs.forEach(pair => {
         dayEl.appendChild(renderPair(pair, hw[pair.id] || '', isToday));
       });
-    
+    }
+
     container.appendChild(dayEl);
   });
 
