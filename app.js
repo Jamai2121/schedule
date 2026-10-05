@@ -11,7 +11,7 @@ const DAY_NAMES = {
 const JS_DAY_TO_KEY = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
 const DAY_ORDER = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
 
-const START_OF_SEMESTER = { month: 7, day: 31 };
+const START_OF_SEMESTER = { month: 7, day: 31 }; // 7 = август, 31 = понедельник
 const PAIR_DURATION_MIN = 95;
 const ONLINE_COURSE_URL = 'http://open.kemsu.ru/';
 
