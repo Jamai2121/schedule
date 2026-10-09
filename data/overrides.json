@@ -4,7 +4,6 @@
     { "action": "cancel", "id": "odd-fri-2" }
   ],
   "6": [
-    {"action": "cancel", "id": "even-fri-1"},
-    {"action": "cancel", "id": "even-fri-3"}
+    {"action": "cancel", "id": "even-fri-1"}
   ]
 }
