@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Расписание АМ-261</title>
+   <title>Расписание АМ-261</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
 </head>
 <body>
   <header>
@@ -93,6 +96,14 @@
     </div>
   </div>
 
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .catch(err => console.warn('SW не зарегистрирован:', err));
+      });
+    }
+  </script>
   <script src="app.js"></script>
 </body>
 </html>
