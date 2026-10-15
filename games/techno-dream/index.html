@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Techno_Dream</title>
+  <link rel="stylesheet" href="./techno-dream.css">
+</head>
+<body>
+  <div id="game-wrap">
+    <div id="hud-top">
+      <a href="../../games/" class="hud-btn" title="К списку игр">←</a>
+      <div id="hud-hp" class="hud-hp"></div>
+      <button id="theme-toggle" class="hud-btn" title="Тема">🌙</button>
+    </div>
+
+    <div id="canvas-wrap">
+      <canvas id="game-canvas"></canvas>
+      <div id="hud-room" class="hud-room"></div>
+      <div id="pause-overlay" class="overlay hidden">
+        <div class="overlay-content">
+          <h2>Пауза</h2>
+          <button class="game-btn" id="resume-btn">Продолжить</button>
+          <a href="../../games/" class="game-btn secondary">Выйти</a>
+        </div>
+      </div>
+    </div>
+
+    <div id="hud-bottom">
+      <div id="hud-hint">WASD — движение · Стрелки — стрельба · Esc — пауза</div>
+    </div>
+  </div>
+
+  <script src="./techno-dream.js"></script>
+</body>
+</html>
