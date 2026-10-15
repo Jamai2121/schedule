@@ -18,6 +18,8 @@
   let currentPreset = 'easy';
   let customMode = false;
   let customConfig = { rows: 10, cols: 10, bombs: 15 };
+  let resultEl = null;   // плашка победа/проигрыш
+  let resultText = '';   // сохраняем текст, если нужно
 
   function mount(stage, onScore) {
     onScoreCb = onScore;
@@ -125,6 +127,12 @@
   }
 
   function startGame() {
+    // Удаляем старую плашку
+    if (resultEl) {
+      resultEl.remove();
+      resultEl = null;
+    }
+
     // Инициализация
     grid = [];
     for (let r = 0; r < rows; r++) {
@@ -341,19 +349,35 @@
       }
     }
 
-    // Плашка
-    const overlay = document.createElement('div');
-    overlay.style.marginTop = '12px';
-    overlay.style.padding = '14px';
-    overlay.style.borderRadius = '10px';
-    overlay.style.textAlign = 'center';
-    overlay.style.background = won ? '#166534' : '#991b1b';
-    overlay.style.color = '#fff';
-    overlay.style.fontWeight = '700';
-    overlay.textContent = won
-      ? `🏆 Победа! Время: ${sec} с`
-      : '💥 Проигрыш. Попробуй ещё!';
-    boardEl.parentElement.appendChild(overlay);
+       // Плашка
+    resultEl = document.createElement('div');
+    resultEl.style.marginTop = '12px';
+    resultEl.style.padding = '14px';
+    resultEl.style.borderRadius = '10px';
+    resultEl.style.textAlign = 'center';
+    resultEl.style.background = won ? '#166534' : '#991b1b';
+    resultEl.style.color = '#fff';
+    resultEl.style.fontWeight = '700';
+
+    // Показываем размер поля и количество мин
+    const sizeInfo = `${rows}×${cols}, ${bombs} мин`;
+
+    if (won) {
+      // Находим лучший рекорд для этой конфигурации в localStorage
+      const bestKey = `minesweeper:${rows}x${cols}:${bombs}`;
+      const prev = JSON.parse(localStorage.getItem('minesweeper-best') || '{}');
+      const prevTime = prev[bestKey];
+      const isRecord = !prevTime || sec < prevTime;
+      if (isRecord) {
+        prev[bestKey] = sec;
+        localStorage.setItem('minesweeper-best', JSON.stringify(prev));
+      }
+      resultEl.innerHTML = `🏆 Победа!<br>${sizeInfo}<br>Время: ${sec} с${isRecord ? ' · 🎉 новый рекорд' : ''}`;
+    } else {
+      resultEl.innerHTML = `💥 Проигрыш. Попробуй ещё!<br>${sizeInfo}`;
+    }
+
+    boardEl.parentElement.appendChild(resultEl);
   }
 
   // ==== ДОЛГОЕ НАЖАТИЕ ДЛЯ ФЛАГА ====
@@ -411,13 +435,20 @@
     desc: 'Открывай клетки, не попадай на мины, ставь флажки.',
     mount,
     unmount,
-    formatBest: v => {
-      // Храним как 1000000 - время. Возвращаем время.
-      const sec = 1000000 - v;
-      if (sec < 60) return `${sec} с`;
-      const m = Math.floor(sec / 60);
-      const s = sec % 60;
+    formatBest: () => {
+      // Читаем лучший результат среди всех конфигураций
+      const prev = JSON.parse(localStorage.getItem('minesweeper-best') || '{}');
+      const times = Object.values(prev);
+      if (times.length === 0) return null;
+      const best = Math.min(...times);
+      if (best < 60) return `${best} с`;
+      const m = Math.floor(best / 60);
+      const s = best % 60;
       return `${m} мин ${s} с`;
+    },
+    hasBest: () => {
+      const prev = JSON.parse(localStorage.getItem('minesweeper-best') || '{}');
+      return Object.keys(prev).length > 0;
     },
   });
 })();
