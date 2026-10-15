@@ -1,5 +1,6 @@
 // ==== TECHNO_DREAM — Этап 6 ====
 // HP игрока, урон, неуязвимость, поражение + свечение пуль
+// + вспышка по силуэту (ctx.filter) + сдвиг спрайтов вверх
 
 (function () {
   // ==== КОНСТАНТЫ ====
@@ -16,6 +17,8 @@
   const INVULN_TIME = 1.0;
   const HIT_FLASH_TIME = 0.15;
   const BLINK_INTERVAL = 0.08;
+
+  const SPRITE_Y_OFFSET = -3;   // сдвиг спрайта вверх (было -16, стало -19)
 
   const BULLET_SIZE = 16;
   const BULLET_SPEED = 5 * TILE;
@@ -575,22 +578,25 @@
 
   function drawEnemies() {
     enemies.forEach(e => {
+      // Тень
       ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
       ctx.beginPath();
-      ctx.ellipse(e.x, e.y + 9, 10, 4, 0, 0, Math.PI * 2);
+      ctx.ellipse(e.x, e.y + 7, 10, 4, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.drawImage(bugImg, e.x - 16, e.y - 16, 32, 32);
+      // Спрайт (со сдвигом вверх)
+      ctx.drawImage(bugImg, e.x - 16, e.y - 16 + SPRITE_Y_OFFSET, 32, 32);
 
+      // Вспышка по силуэту
       if (e.flash > 0) {
         ctx.save();
-        ctx.globalCompositeOperation = 'source-atop';
-        ctx.globalAlpha = e.flash / ENEMY_HIT_FLASH * 0.85;
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(e.x - 16, e.y - 16, 32, 32);
+        ctx.filter = 'brightness(0) invert(1)';
+        ctx.globalAlpha = e.flash / ENEMY_HIT_FLASH;
+        ctx.drawImage(bugImg, e.x - 16, e.y - 16 + SPRITE_Y_OFFSET, 32, 32);
         ctx.restore();
       }
 
+      // HP-полоска
       const hpW = 28;
       const hpH = 4;
       const hpX = e.x - hpW / 2;
@@ -604,21 +610,24 @@
   }
 
   function drawPlayer() {
+    // Тень
     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.beginPath();
-    ctx.ellipse(player.x, player.y + 10, 10, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(player.x, player.y + 8, 10, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    // Мерцание — пропускаем кадр, если невидим
     if (player.invuln > 0 && !player.visible) return;
 
-    ctx.drawImage(droidImg, player.x - 16, player.y - 16, 32, 32);
+    // Спрайт (со сдвигом вверх)
+    ctx.drawImage(droidImg, player.x - 16, player.y - 16 + SPRITE_Y_OFFSET, 32, 32);
 
+    // Вспышка по силуэту
     if (player.hitFlash > 0) {
       ctx.save();
-      ctx.globalCompositeOperation = 'source-atop';
-      ctx.globalAlpha = player.hitFlash / HIT_FLASH_TIME * 0.9;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(player.x - 16, player.y - 16, 32, 32);
+      ctx.filter = 'brightness(0) invert(1)';
+      ctx.globalAlpha = player.hitFlash / HIT_FLASH_TIME;
+      ctx.drawImage(droidImg, player.x - 16, player.y - 16 + SPRITE_Y_OFFSET, 32, 32);
       ctx.restore();
     }
   }
