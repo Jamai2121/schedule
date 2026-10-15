@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Игры — Расписание АМ-261</title>
+  <link rel="stylesheet" href="./games.css">
+</head>
+<body>
+  <header>
+    <div class="header-top">
+      <div class="header-left">
+        <a href="../" class="icon-btn" aria-label="Назад к расписанию">←</a>
+        <button id="theme-toggle" class="icon-btn" aria-label="Сменить тему">🌙</button>
+      </div>
+    </div>
+    <h1>Игры</h1>
+    <div class="subtitle">Развлечение на паре</div>
+  </header>
+
+  <main>
+    <div class="games-grid" id="games-grid"></div>
+  </main>
+
+  <!-- Модалка игры -->
+  <div id="game-modal" class="modal hidden">
+    <div class="modal-content game-modal-content">
+      <div class="game-header">
+        <button class="modal-close" data-close="game-modal">×</button>
+        <h2 id="game-title"></h2>
+        <div id="game-best" class="game-best"></div>
+      </div>
+      <div id="game-stage" class="game-stage"></div>
+    </div>
+  </div>
+
+  <script src="./games.js"></script>
+  <script src="./snake.js"></script>
+  <script src="./g2048.js"></script>
+  <script src="./minesweeper.js"></script>
+  <script src="./tetris.js"></script>
+</body>
+</html>
