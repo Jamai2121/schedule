@@ -148,6 +148,15 @@
   }
 
   function start() {
+    // Удаляем старый оверлей, если был
+    const parent = canvas.parentElement;
+    if (parent) {
+      const existing = parent.querySelectorAll('div');
+      existing.forEach(el => {
+        if (el.style.position === 'absolute') el.remove();
+      });
+    }
+
     board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
     score = 0;
     lines = 0;
@@ -234,14 +243,20 @@
 
   function clearLines() {
     let cleared = 0;
-    for (let r = ROWS - 1; r >= 0; r--) {
-      if (board[r].every(cell => cell !== null)) {
-        board.splice(r, 1);
-        board.unshift(Array(COLS).fill(null));
+    const newBoard = [];
+    // Оставляем только НЕ заполненные строки (сверху вниз)
+    for (let r = 0; r < ROWS; r++) {
+      if (!board[r].every(cell => cell !== null)) {
+        newBoard.push(board[r]);
+      } else {
         cleared++;
-        r++; // перепроверить эту же строку
       }
     }
+    // Добиваем пустыми строками сверху
+    while (newBoard.length < ROWS) {
+      newBoard.unshift(Array(COLS).fill(null));
+    }
+    board = newBoard;
     if (cleared > 0) {
       const points = [0, 100, 300, 500, 800][cleared] * level;
       score += points;
@@ -270,14 +285,41 @@
     running = false;
     if (dropTimer) clearInterval(dropTimer);
     draw();
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 22px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('Игра окончена', canvas.width / 2, canvas.height / 2 - 10);
-    ctx.font = '16px system-ui, sans-serif';
-    ctx.fillText('Очки: ' + score, canvas.width / 2, canvas.height / 2 + 20);
+
+    // Оверлей поверх canvas
+    const canvasWrap = canvas.parentElement; // wrap контейнер
+    canvasWrap.style.position = 'relative';
+    const overlay = document.createElement('div');
+    overlay.style.position = 'absolute';
+    overlay.style.left = '0';
+    overlay.style.top = '0';
+    overlay.style.width = canvas.width + 'px';
+    overlay.style.height = canvas.height + 'px';
+    overlay.style.display = 'flex';
+    overlay.style.flexDirection = 'column';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.background = 'rgba(0,0,0,0.75)';
+    overlay.style.color = '#fff';
+    overlay.style.borderRadius = '8px';
+    overlay.style.gap = '10px';
+    overlay.style.padding = '20px';
+    overlay.style.textAlign = 'center';
+    overlay.innerHTML = `
+      <div style="font-size:22px;font-weight:700">Игра окончена</div>
+      <div style="font-size:16px;opacity:0.9">Очки: ${score}</div>
+      <div style="font-size:13px;opacity:0.7">Линии: ${lines} · Уровень: ${level}</div>
+    `;
+    const restart = document.createElement('button');
+    restart.className = 'game-btn';
+    restart.textContent = 'Заново';
+    restart.style.marginTop = '8px';
+    restart.addEventListener('click', () => {
+      overlay.remove();
+      start();
+    });
+    overlay.appendChild(restart);
+    canvasWrap.appendChild(overlay);
   }
 
   // ==== ОТРИСОВКА ====
