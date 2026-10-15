@@ -21,7 +21,7 @@
   const BULLET_SPEED = 5 * TILE;
   const BULLET_COOLDOWN = 0.4;
   const BULLET_LIFETIME = 3;
-  const BULLET_GLOW = '34, 211, 238'; // rgb бирюзового
+  const BULLET_GLOW = '34, 211, 238';
 
   const ENEMY_SIZE = 24;
   const ENEMY_SPEED = 2 * TILE;
@@ -87,15 +87,6 @@
 
   const bugImg = new Image();
   bugImg.src = './sprites/bag_0.png';
-
-  const hpFullImg = new Image();
-  hpFullImg.src = './sprites/hp_full.png';
-
-  const hpPolImg = new Image();
-  hpPolImg.src = './sprites/hp_pol.png';
-
-  const hpNoolImg = new Image();
-  hpNoolImg.src = './sprites/hp_nool.png';
 
   // Ввод
   const keys = { w: false, a: false, s: false, d: false };
@@ -562,12 +553,8 @@
 
   function drawBullets() {
     bullets.forEach(b => {
-      // Голубое свечение вокруг пули
       const glowR = BULLET_SIZE * 1.1;
-      const grad = ctx.createRadialGradient(
-        b.x, b.y, 0,
-        b.x, b.y, glowR
-      );
+      const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, glowR);
       grad.addColorStop(0, `rgba(${BULLET_GLOW}, 0.55)`);
       grad.addColorStop(0.6, `rgba(${BULLET_GLOW}, 0.2)`);
       grad.addColorStop(1, `rgba(${BULLET_GLOW}, 0)`);
@@ -576,7 +563,6 @@
       ctx.arc(b.x, b.y, glowR, 0, Math.PI * 2);
       ctx.fill();
 
-      // Сам спрайт пули
       ctx.drawImage(
         bulletImg,
         b.x - BULLET_SIZE / 2,
