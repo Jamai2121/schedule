@@ -1,5 +1,5 @@
-// ==== TECHNO_DREAM — Этап 3 ====
-// Комната + игрок (дроид-уборщик) с движением WASD и коллизиями
+// ==== TECHNO_DREAM — Этап 4 ====
+// Комната + игрок (дроид) + стрельба стрелками
 
 (function () {
   // ==== КОНСТАНТЫ ====
@@ -10,8 +10,13 @@
   const WORLD_H = ROOM_ROWS * TILE;
   const TARGET_FPS = 60;
 
-  const PLAYER_SIZE = 24;       // размер хитбокса (спрайт 32, но хитбокс меньше)
-  const PLAYER_SPEED = 4.5 * TILE; // px/сек
+  const PLAYER_SIZE = 24;
+  const PLAYER_SPEED = 4.5 * TILE;
+
+  const BULLET_SIZE = 16;
+  const BULLET_SPEED = 5 * TILE;   // 160 px/сек
+  const BULLET_COOLDOWN = 0.4;     // 0.4 сек между выстрелами
+  const BULLET_LIFETIME = 3;       // сек до самоуничтожения (на всякий)
 
   const TILE_FLOOR = 0;
   const TILE_WALL = 1;
@@ -44,19 +49,27 @@
 
   // Игрок
   const player = {
-    x: 0,         // центр игрока в мировых координатах
+    x: 0,
     y: 0,
     speed: PLAYER_SPEED,
-    dir: { x: 0, y: 1 },   // направление взгляда (вниз по умолчанию)
+    dir: { x: 0, y: 1 },
     moving: false,
+    shootCooldown: 0,
   };
 
-  // Спрайт
+  // Пули
+  const bullets = [];
+
+  // Спрайты
   const droidImg = new Image();
-  let droidReady = false;
+  droidImg.src = './sprites/droid-idle.png';
+
+  const bulletImg = new Image();
+  bulletImg.src = './sprites/bullet.png';
 
   // Ввод
   const keys = { w: false, a: false, s: false, d: false };
+  const shootKeys = { up: false, down: false, left: false, right: false };
 
   // ==== ИНИЦИАЛИЗАЦИЯ ====
   function init() {
@@ -78,14 +91,8 @@
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     applyTheme(savedTheme || (prefersDark ? 'dark' : 'light'));
 
-    // Загрузка спрайта
-    droidImg.onload = () => { droidReady = true; };
-    droidImg.onerror = () => { console.warn('Не удалось загрузить droid-idle.png'); };
-    droidImg.src = './sprites/droid-idle.png';
-
     generateRoom();
 
-    // Ставим игрока в центр
     const midCol = Math.floor(ROOM_COLS / 2);
     const midRow = Math.floor(ROOM_ROWS / 2);
     player.x = midCol * TILE + TILE / 2;
@@ -131,7 +138,6 @@
   }
 
   // ==== КОЛЛИЗИИ ====
-  // Тайл, в который попадает точка (x, y) в мировых координатах
   function tileAt(worldX, worldY) {
     const c = Math.floor(worldX / TILE);
     const r = Math.floor(worldY / TILE);
@@ -140,19 +146,20 @@
   }
 
   function isWalkable(worldX, worldY) {
-    // Двери — пока непроходимы (этап 7)
-    const t = tileAt(worldX, worldY);
-    return t === TILE_FLOOR;
+    return tileAt(worldX, worldY) === TILE_FLOOR;
   }
 
-  // Проверка: может ли игрок стоять в позиции (cx, cy) — центр
   function canStand(cx, cy) {
     const half = PLAYER_SIZE / 2;
-    // Углы хитбокса
     return isWalkable(cx - half, cy - half) &&
            isWalkable(cx + half, cy - half) &&
            isWalkable(cx - half, cy + half) &&
            isWalkable(cx + half, cy + half);
+  }
+
+  // Для пуль — проверяем только центр (пули мелкие)
+  function bulletHitsWall(cx, cy) {
+    return !isWalkable(cx, cy);
   }
 
   // ==== ИГРОВОЙ ЦИКЛ ====
@@ -176,8 +183,12 @@
 
   function update(dt) {
     gameTime += dt;
+    updatePlayer(dt);
+    updateBullets(dt);
+  }
 
-    // Направление движения
+  function updatePlayer(dt) {
+    // Движение
     let dx = 0, dy = 0;
     if (keys.w) dy -= 1;
     if (keys.s) dy += 1;
@@ -187,7 +198,6 @@
     player.moving = dx !== 0 || dy !== 0;
 
     if (player.moving) {
-      // Нормализация по диагонали
       const len = Math.hypot(dx, dy);
       dx /= len;
       dy /= len;
@@ -196,13 +206,59 @@
       const newX = player.x + dx * step;
       const newY = player.y + dy * step;
 
-      // Раздельные проверки по осям — можно «скользить» вдоль стен
       if (canStand(newX, player.y)) player.x = newX;
       if (canStand(player.x, newY)) player.y = newY;
 
-      // Запоминаем направление взгляда
       player.dir.x = dx;
       player.dir.y = dy;
+    }
+
+    // Кулдаун стрельбы
+    if (player.shootCooldown > 0) {
+      player.shootCooldown -= dt;
+    }
+
+    // Стрельба — если нажата хотя бы одна стрелка и кулдаун прошёл
+    if (player.shootCooldown <= 0) {
+      let sx = 0, sy = 0;
+      if (shootKeys.up) sy -= 1;
+      if (shootKeys.down) sy += 1;
+      if (shootKeys.left) sx -= 1;
+      if (shootKeys.right) sx += 1;
+
+      if (sx !== 0 || sy !== 0) {
+        fire(sx, sy);
+        player.shootCooldown = BULLET_COOLDOWN;
+      }
+    }
+  }
+
+  function fire(sx, sy) {
+    // Точка старта — от центра игрока в сторону выстрела, чтобы пуля не «спавнилась» в игроке
+    const offset = PLAYER_SIZE / 2 + BULLET_SIZE / 2 - 2;
+    const bx = player.x + sx * offset;
+    const by = player.y + sy * offset;
+
+    bullets.push({
+      x: bx,
+      y: by,
+      vx: sx * BULLET_SPEED,
+      vy: sy * BULLET_SPEED,
+      life: BULLET_LIFETIME,
+    });
+  }
+
+  function updateBullets(dt) {
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const b = bullets[i];
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.life -= dt;
+
+      // Удаление: стена или истёк срок
+      if (b.life <= 0 || bulletHitsWall(b.x, b.y)) {
+        bullets.splice(i, 1);
+      }
     }
   }
 
@@ -211,6 +267,7 @@
     drawFloor();
     drawWalls();
     drawDoors();
+    drawBullets();
     drawPlayer();
     drawDebug();
   }
@@ -285,22 +342,27 @@
     ctx.fillRect(x + TILE / 2 - 2, y + TILE / 2 - 2, 4, 4);
   }
 
+  function drawBullets() {
+    bullets.forEach(b => {
+      ctx.drawImage(
+        bulletImg,
+        b.x - BULLET_SIZE / 2,
+        b.y - BULLET_SIZE / 2,
+        BULLET_SIZE,
+        BULLET_SIZE
+      );
+    });
+  }
+
   function drawPlayer() {
-    // Тень (эллипс под ногами) — чтобы дроид «стоял» на полу
+    // Тень
     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.beginPath();
     ctx.ellipse(player.x, player.y + 10, 10, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    if (droidReady) {
-      // Спрайт 32×32 рисуем так, чтобы центр спрайта совпал с центром игрока
-      const dw = 32, dh = 32;
-      ctx.drawImage(droidImg, player.x - dw / 2, player.y - dh / 2, dw, dh);
-    } else {
-      // Фолбэк — простой квадрат, пока спрайт не загрузился
-      ctx.fillStyle = '#22d3ee';
-      ctx.fillRect(player.x - PLAYER_SIZE / 2, player.y - PLAYER_SIZE / 2, PLAYER_SIZE, PLAYER_SIZE);
-    }
+    // Спрайт
+    ctx.drawImage(droidImg, player.x - 16, player.y - 16, 32, 32);
   }
 
   function drawDebug() {
@@ -308,7 +370,7 @@
     ctx.fillStyle = 'rgba(138, 143, 168, 0.5)';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText(`v0.0.3 · ${ROOM_COLS}×${ROOM_ROWS} · t=${gameTime.toFixed(1)}s`, 6, 6);
+    ctx.fillText(`v0.0.4 · ${ROOM_COLS}×${ROOM_ROWS} · bullets: ${bullets.length}`, 6, 6);
   }
 
   // ==== УПРАВЛЕНИЕ ====
@@ -318,11 +380,20 @@
       togglePause();
       return;
     }
+
     const k = e.key.toLowerCase();
+
+    // Движение WASD
     if (k === 'w' || k === 'ц') keys.w = true;
     if (k === 'a' || k === 'ф') keys.a = true;
     if (k === 's' || k === 'ы') keys.s = true;
     if (k === 'd' || k === 'в') keys.d = true;
+
+    // Стрельба стрелками
+    if (e.key === 'ArrowUp')    { e.preventDefault(); shootKeys.up = true; }
+    if (e.key === 'ArrowDown')  { e.preventDefault(); shootKeys.down = true; }
+    if (e.key === 'ArrowLeft')  { e.preventDefault(); shootKeys.left = true; }
+    if (e.key === 'ArrowRight') { e.preventDefault(); shootKeys.right = true; }
   }
 
   function onKeyUp(e) {
@@ -331,6 +402,11 @@
     if (k === 'a' || k === 'ф') keys.a = false;
     if (k === 's' || k === 'ы') keys.s = false;
     if (k === 'd' || k === 'в') keys.d = false;
+
+    if (e.key === 'ArrowUp')    shootKeys.up = false;
+    if (e.key === 'ArrowDown')  shootKeys.down = false;
+    if (e.key === 'ArrowLeft')  shootKeys.left = false;
+    if (e.key === 'ArrowRight') shootKeys.right = false;
   }
 
   function togglePause() {
