@@ -3,8 +3,8 @@
   const CELL = 20;       // размер клетки в px
   const COLS = 20;       // ширина поля
   const ROWS = 20;       // высота поля
-  const START_SPEED = 150; // мс между шагами
-  const MIN_SPEED = 70;
+  const START_SPEED = 200; // мс между шагами
+  const MIN_SPEED = 90;
 
   let canvas, ctx;
   let snake, dir, nextDir, food, score, speed, timer, running;
@@ -116,7 +116,7 @@
       placeFood();
 
       // Ускорение
-      speed = Math.max(MIN_SPEED, speed - 4);
+      speed = Math.max(MIN_SPEED, speed - 2);
       clearInterval(timer);
       timer = setInterval(tick, speed);
     } else {
