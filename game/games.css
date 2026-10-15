@@ -1,0 +1,263 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f4f6fa;
+  --card: #ffffff;
+  --text: #1e2233;
+  --muted: #6b7280;
+  --muted-2: #9ca3af;
+  --title: #2a2f45;
+  --accent: #2563eb;
+  --accent-soft: #dbeafe;
+  --hover: #eef2ff;
+  --chip-bg: #e0e7ff;
+  --chip-text: #3730a3;
+  --shadow: 0 2px 10px rgba(0,0,0,0.05);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+  --modal-bg: rgba(15, 20, 40, 0.5);
+  --board-bg: #cdc1b4;
+  --board-cell: #eee4da;
+}
+
+body.dark {
+  --bg: #0f1220;
+  --card: #1a1f33;
+  --text: #e6e8f0;
+  --muted: #9aa0b4;
+  --muted-2: #6b7280;
+  --title: #c8cde0;
+  --accent: #60a5fa;
+  --accent-soft: #1e3a8a;
+  --hover: #232a45;
+  --chip-bg: #2d355c;
+  --chip-text: #b9c2ff;
+  --shadow: 0 2px 10px rgba(0,0,0,0.4);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.35);
+  --modal-bg: rgba(0, 0, 0, 0.7);
+  --board-bg: #3a3630;
+  --board-cell: #4a4640;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 24px;
+  transition: background 0.25s, color 0.25s;
+}
+
+header {
+  max-width: 900px;
+  margin: 0 auto 24px;
+  text-align: center;
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.header-left {
+  display: flex;
+  gap: 8px;
+}
+
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--card);
+  color: var(--text);
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s, background 0.25s;
+  text-decoration: none;
+}
+.icon-btn:hover { transform: scale(1.08); }
+.icon-btn:active { transform: scale(0.95); }
+
+h1 { font-size: 28px; margin-bottom: 4px; }
+
+.subtitle {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Сетка карточек игр */
+.games-grid {
+  max-width: 900px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.game-card {
+  background: var(--card);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.game-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+}
+body.dark .game-card:hover {
+  box-shadow: 0 6px 20px rgba(0,0,0,0.55);
+}
+
+.game-card-emoji {
+  font-size: 42px;
+  line-height: 1;
+}
+
+.game-card-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--title);
+}
+
+.game-card-desc {
+  font-size: 13px;
+  color: var(--muted);
+  flex: 1;
+}
+
+.game-card-best {
+  font-size: 12px;
+  color: var(--muted);
+  padding-top: 8px;
+  border-top: 1px solid var(--hover);
+}
+.game-card-best strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Модалка */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: var(--modal-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+.modal.hidden { display: none; }
+
+.modal-content {
+  background: var(--card);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 24px;
+  max-width: 640px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+}
+
+.game-modal-content {
+  padding: 16px 20px 20px;
+}
+
+.modal-close {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  border: none;
+  background: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--muted);
+  line-height: 1;
+}
+.modal-close:hover { color: var(--text); }
+
+.game-header {
+  margin-bottom: 16px;
+}
+
+.game-header h2 {
+  font-size: 20px;
+  margin-bottom: 6px;
+}
+
+.game-best {
+  font-size: 13px;
+  color: var(--muted);
+}
+.game-best strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.game-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.game-soon {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* Общие стили для игр */
+.game-score {
+  display: flex;
+  gap: 20px;
+  font-size: 14px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.game-score strong {
+  color: var(--title);
+  font-weight: 700;
+}
+
+.game-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.game-btn:hover { opacity: 0.9; }
+.game-btn:active { transform: scale(0.96); }
+.game-btn.secondary {
+  background: var(--hover);
+  color: var(--text);
+}
+
+/* Мобильная адаптация */
+@media (max-width: 480px) {
+  body { padding: 16px; }
+  h1 { font-size: 22px; }
+  .icon-btn { width: 40px; height: 40px; font-size: 18px; }
+  .games-grid { grid-template-columns: 1fr; }
+  .modal-content { padding: 16px; }
+}
