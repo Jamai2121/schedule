@@ -1,5 +1,5 @@
-// ==== TECHNO_DREAM — Этап 5 ====
-// Комната + игрок + стрельба + первый враг (жук-баг)
+// ==== TECHNO_DREAM — Этап 6 ====
+// HP игрока, урон, неуязвимость, поражение + свечение пуль
 
 (function () {
   // ==== КОНСТАНТЫ ====
@@ -12,16 +12,22 @@
 
   const PLAYER_SIZE = 24;
   const PLAYER_SPEED = 4.5 * TILE;
+  const PLAYER_MAX_HP = 6;
+  const INVULN_TIME = 1.0;
+  const HIT_FLASH_TIME = 0.15;
+  const BLINK_INTERVAL = 0.08;
 
   const BULLET_SIZE = 16;
   const BULLET_SPEED = 5 * TILE;
   const BULLET_COOLDOWN = 0.4;
   const BULLET_LIFETIME = 3;
+  const BULLET_GLOW = '34, 211, 238'; // rgb бирюзового
 
-  const ENEMY_SIZE = 24;         // хитбокс врага
-  const ENEMY_SPEED = 2 * TILE;  // 64 px/сек
+  const ENEMY_SIZE = 24;
+  const ENEMY_SPEED = 2 * TILE;
   const ENEMY_HP = 3;
-  const ENEMY_HIT_FLASH = 0.12;  // длительность вспышки при попадании
+  const ENEMY_HIT_FLASH = 0.12;
+  const ENEMY_DAMAGE = 1;
 
   const TILE_FLOOR = 0;
   const TILE_WALL = 1;
@@ -50,6 +56,7 @@
 
   let paused = false;
   let gameTime = 0;
+  let gameOver = false;
 
   let room = [];
   let doors = { top: true, bottom: true, left: true, right: true };
@@ -61,6 +68,11 @@
     dir: { x: 0, y: 1 },
     moving: false,
     shootCooldown: 0,
+    hp: PLAYER_MAX_HP,
+    invuln: 0,
+    hitFlash: 0,
+    blinkTimer: 0,
+    visible: true,
   };
 
   const bullets = [];
@@ -75,6 +87,15 @@
 
   const bugImg = new Image();
   bugImg.src = './sprites/bag_0.png';
+
+  const hpFullImg = new Image();
+  hpFullImg.src = './sprites/hp_full.png';
+
+  const hpPolImg = new Image();
+  hpPolImg.src = './sprites/hp_pol.png';
+
+  const hpNoolImg = new Image();
+  hpNoolImg.src = './sprites/hp_nool.png';
 
   // Ввод
   const keys = { w: false, a: false, s: false, d: false };
@@ -100,16 +121,37 @@
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     applyTheme(savedTheme || (prefersDark ? 'dark' : 'light'));
 
+    startGame();
+
+    requestAnimationFrame(loop);
+  }
+
+  function startGame() {
+    gameOver = false;
+    paused = false;
+
     generateRoom();
 
     const midCol = Math.floor(ROOM_COLS / 2);
     const midRow = Math.floor(ROOM_ROWS / 2);
     player.x = midCol * TILE + TILE / 2;
     player.y = midRow * TILE + TILE / 2;
+    player.hp = PLAYER_MAX_HP;
+    player.invuln = 0;
+    player.hitFlash = 0;
+    player.blinkTimer = 0;
+    player.visible = true;
+    player.shootCooldown = 0;
+    player.dir = { x: 0, y: 1 };
+
+    bullets.length = 0;
+    enemies.length = 0;
 
     spawnEnemy();
 
-    requestAnimationFrame(loop);
+    updateHpHUD();
+
+    document.getElementById('pause-overlay').classList.add('hidden');
   }
 
   // ==== ГЕНЕРАЦИЯ КОМНАТЫ ====
@@ -139,7 +181,6 @@
 
   // ==== СПАВН ВРАГА ====
   function spawnEnemy() {
-    // Ищем свободную клетку подальше от игрока
     const candidates = [];
     for (let r = 1; r < ROOM_ROWS - 1; r++) {
       for (let c = 1; c < ROOM_COLS - 1; c++) {
@@ -185,7 +226,6 @@
     return tileAt(worldX, worldY) === TILE_FLOOR;
   }
 
-  // Универсальная проверка: помещается ли объект size×size в позицию (cx, cy)
   function canStand(cx, cy, size) {
     const half = size / 2;
     return isWalkable(cx - half, cy - half) &&
@@ -205,7 +245,7 @@
     lastTime = timestamp;
     if (delta > 100) delta = 100;
 
-    if (!paused) {
+    if (!paused && !gameOver) {
       accumulator += delta;
       while (accumulator >= STEP) {
         update(STEP / 1000);
@@ -223,6 +263,8 @@
     updateBullets(dt);
     updateEnemies(dt);
     checkBulletEnemyCollisions();
+    checkPlayerEnemyCollisions();
+    updatePlayerInvuln(dt);
   }
 
   function updatePlayer(dt) {
@@ -268,6 +310,25 @@
     }
   }
 
+  function updatePlayerInvuln(dt) {
+    if (player.invuln > 0) {
+      player.invuln -= dt;
+      player.blinkTimer += dt;
+      if (player.blinkTimer >= BLINK_INTERVAL) {
+        player.blinkTimer = 0;
+        player.visible = !player.visible;
+      }
+      if (player.invuln <= 0) {
+        player.visible = true;
+        player.invuln = 0;
+      }
+    }
+    if (player.hitFlash > 0) {
+      player.hitFlash -= dt;
+      if (player.hitFlash < 0) player.hitFlash = 0;
+    }
+  }
+
   function fire(sx, sy) {
     const offset = PLAYER_SIZE / 2 + BULLET_SIZE / 2 - 2;
     const bx = player.x + sx * offset;
@@ -296,7 +357,6 @@
 
   function updateEnemies(dt) {
     enemies.forEach(e => {
-      // Направление на игрока
       let dx = player.x - e.x;
       let dy = player.y - e.y;
       const len = Math.hypot(dx, dy);
@@ -308,11 +368,9 @@
       const newX = e.x + dx * step;
       const newY = e.y + dy * step;
 
-      // Раздельные проверки по осям — скольжение вдоль стен
       if (canStand(newX, e.y, ENEMY_SIZE)) e.x = newX;
       if (canStand(e.x, newY, ENEMY_SIZE)) e.y = newY;
 
-      // Таймер вспышки
       if (e.flash > 0) e.flash -= dt;
     });
   }
@@ -332,7 +390,6 @@
           bulletUsed = true;
           if (e.hp <= 0) {
             enemies.splice(j, 1);
-            // Можно спавнить нового для теста — пока нет
           }
           break;
         }
@@ -340,6 +397,86 @@
 
       if (bulletUsed) bullets.splice(i, 1);
     }
+  }
+
+  function checkPlayerEnemyCollisions() {
+    if (player.invuln > 0) return;
+
+    for (let j = enemies.length - 1; j >= 0; j--) {
+      const e = enemies[j];
+      const halfE = ENEMY_SIZE / 2;
+      const halfP = PLAYER_SIZE / 2;
+      if (player.x + halfP > e.x - halfE &&
+          player.x - halfP < e.x + halfE &&
+          player.y + halfP > e.y - halfE &&
+          player.y - halfP < e.y + halfE) {
+        damagePlayer(ENEMY_DAMAGE);
+        return;
+      }
+    }
+  }
+
+  function damagePlayer(amount) {
+    player.hp -= amount;
+    player.invuln = INVULN_TIME;
+    player.hitFlash = HIT_FLASH_TIME;
+    player.blinkTimer = 0;
+    player.visible = false;
+
+    updateHpHUD();
+
+    if (player.hp <= 0) {
+      player.hp = 0;
+      triggerGameOver();
+    }
+  }
+
+  function updateHpHUD() {
+    const icons = document.querySelectorAll('#hud-hp .hp-icon');
+    let hp = player.hp;
+    icons.forEach((img, i) => {
+      const slotHp = Math.max(0, Math.min(2, hp - i * 2));
+      let src;
+      if (slotHp >= 2) src = './sprites/hp_full.png';
+      else if (slotHp === 1) src = './sprites/hp_pol.png';
+      else src = './sprites/hp_nool.png';
+
+      const wasDifferent = !img.src.endsWith(src.split('/').pop());
+      img.src = src;
+
+      if (wasDifferent) {
+        img.classList.remove('hit');
+        void img.offsetWidth;
+        img.classList.add('hit');
+      }
+    });
+  }
+
+  function triggerGameOver() {
+    gameOver = true;
+    paused = true;
+
+    const overlay = document.getElementById('pause-overlay');
+    overlay.classList.remove('hidden');
+    overlay.innerHTML = `
+      <div class="overlay-content">
+        <h2 class="defeat">Поражение</h2>
+        <button class="game-btn" id="restart-btn">Заново</button>
+        <a href="../../games/" class="game-btn secondary">Выйти</a>
+      </div>
+    `;
+    document.getElementById('restart-btn').addEventListener('click', () => {
+      overlay.innerHTML = `
+        <div class="overlay-content">
+          <h2>Пауза</h2>
+          <button class="game-btn" id="resume-btn">Продолжить</button>
+          <a href="../../games/" class="game-btn secondary">Выйти</a>
+        </div>
+      `;
+      overlay.classList.add('hidden');
+      document.getElementById('resume-btn').addEventListener('click', togglePause);
+      startGame();
+    });
   }
 
   // ==== ОТРИСОВКА ====
@@ -425,6 +562,21 @@
 
   function drawBullets() {
     bullets.forEach(b => {
+      // Голубое свечение вокруг пули
+      const glowR = BULLET_SIZE * 1.1;
+      const grad = ctx.createRadialGradient(
+        b.x, b.y, 0,
+        b.x, b.y, glowR
+      );
+      grad.addColorStop(0, `rgba(${BULLET_GLOW}, 0.55)`);
+      grad.addColorStop(0.6, `rgba(${BULLET_GLOW}, 0.2)`);
+      grad.addColorStop(1, `rgba(${BULLET_GLOW}, 0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, glowR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Сам спрайт пули
       ctx.drawImage(
         bulletImg,
         b.x - BULLET_SIZE / 2,
@@ -437,22 +589,22 @@
 
   function drawEnemies() {
     enemies.forEach(e => {
-      // Тень
       ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
       ctx.beginPath();
       ctx.ellipse(e.x, e.y + 9, 10, 4, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Спрайт
       ctx.drawImage(bugImg, e.x - 16, e.y - 16, 32, 32);
 
-      // Вспышка при попадании
       if (e.flash > 0) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${e.flash / ENEMY_HIT_FLASH * 0.6})`;
+        ctx.save();
+        ctx.globalCompositeOperation = 'source-atop';
+        ctx.globalAlpha = e.flash / ENEMY_HIT_FLASH * 0.85;
+        ctx.fillStyle = '#ffffff';
         ctx.fillRect(e.x - 16, e.y - 16, 32, 32);
+        ctx.restore();
       }
 
-      // HP-полоска над врагом
       const hpW = 28;
       const hpH = 4;
       const hpX = e.x - hpW / 2;
@@ -471,7 +623,18 @@
     ctx.ellipse(player.x, player.y + 10, 10, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    if (player.invuln > 0 && !player.visible) return;
+
     ctx.drawImage(droidImg, player.x - 16, player.y - 16, 32, 32);
+
+    if (player.hitFlash > 0) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.globalAlpha = player.hitFlash / HIT_FLASH_TIME * 0.9;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(player.x - 16, player.y - 16, 32, 32);
+      ctx.restore();
+    }
   }
 
   function drawDebug() {
@@ -480,7 +643,7 @@
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillText(
-      `v0.0.5 · enemies: ${enemies.length} · bullets: ${bullets.length}`,
+      `v0.0.6 · HP: ${player.hp}/${PLAYER_MAX_HP} · invuln: ${player.invuln.toFixed(1)}`,
       6, 6
     );
   }
@@ -489,7 +652,7 @@
   function onKeyDown(e) {
     if (e.key === 'Escape') {
       e.preventDefault();
-      togglePause();
+      if (!gameOver) togglePause();
       return;
     }
 
@@ -519,6 +682,7 @@
   }
 
   function togglePause() {
+    if (gameOver) return;
     paused = !paused;
     document.getElementById('pause-overlay').classList.toggle('hidden', !paused);
   }
