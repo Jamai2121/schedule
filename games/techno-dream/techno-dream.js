@@ -1,5 +1,5 @@
-// ==== TECHNO_DREAM — Этап 4 ====
-// Комната + игрок (дроид) + стрельба стрелками
+// ==== TECHNO_DREAM — Этап 5 ====
+// Комната + игрок + стрельба + первый враг (жук-баг)
 
 (function () {
   // ==== КОНСТАНТЫ ====
@@ -14,9 +14,14 @@
   const PLAYER_SPEED = 4.5 * TILE;
 
   const BULLET_SIZE = 16;
-  const BULLET_SPEED = 5 * TILE;   // 160 px/сек
-  const BULLET_COOLDOWN = 0.4;     // 0.4 сек между выстрелами
-  const BULLET_LIFETIME = 3;       // сек до самоуничтожения (на всякий)
+  const BULLET_SPEED = 5 * TILE;
+  const BULLET_COOLDOWN = 0.4;
+  const BULLET_LIFETIME = 3;
+
+  const ENEMY_SIZE = 24;         // хитбокс врага
+  const ENEMY_SPEED = 2 * TILE;  // 64 px/сек
+  const ENEMY_HP = 3;
+  const ENEMY_HIT_FLASH = 0.12;  // длительность вспышки при попадании
 
   const TILE_FLOOR = 0;
   const TILE_WALL = 1;
@@ -33,6 +38,8 @@
     wallTop: '#232b48',
     door: '#fbbf24',
     doorDark: '#b45309',
+    hpFull: '#ef4444',
+    hpEmpty: 'rgba(0,0,0,0.5)',
   };
 
   // ==== СОСТОЯНИЕ ====
@@ -47,7 +54,6 @@
   let room = [];
   let doors = { top: true, bottom: true, left: true, right: true };
 
-  // Игрок
   const player = {
     x: 0,
     y: 0,
@@ -57,8 +63,8 @@
     shootCooldown: 0,
   };
 
-  // Пули
   const bullets = [];
+  const enemies = [];
 
   // Спрайты
   const droidImg = new Image();
@@ -66,6 +72,9 @@
 
   const bulletImg = new Image();
   bulletImg.src = './sprites/bullet.png';
+
+  const bugImg = new Image();
+  bugImg.src = './sprites/bag_0.png';
 
   // Ввод
   const keys = { w: false, a: false, s: false, d: false };
@@ -98,6 +107,8 @@
     player.x = midCol * TILE + TILE / 2;
     player.y = midRow * TILE + TILE / 2;
 
+    spawnEnemy();
+
     requestAnimationFrame(loop);
   }
 
@@ -126,6 +137,31 @@
     if (doors.right)  room[midRow][ROOM_COLS - 1] = TILE_DOOR_RIGHT;
   }
 
+  // ==== СПАВН ВРАГА ====
+  function spawnEnemy() {
+    // Ищем свободную клетку подальше от игрока
+    const candidates = [];
+    for (let r = 1; r < ROOM_ROWS - 1; r++) {
+      for (let c = 1; c < ROOM_COLS - 1; c++) {
+        if (room[r][c] !== TILE_FLOOR) continue;
+        const ex = c * TILE + TILE / 2;
+        const ey = r * TILE + TILE / 2;
+        const dist = Math.hypot(ex - player.x, ey - player.y);
+        if (dist > TILE * 4) candidates.push({ x: ex, y: ey });
+      }
+    }
+    if (candidates.length === 0) return;
+    const spot = candidates[Math.floor(Math.random() * candidates.length)];
+    enemies.push({
+      x: spot.x,
+      y: spot.y,
+      hp: ENEMY_HP,
+      maxHp: ENEMY_HP,
+      speed: ENEMY_SPEED,
+      flash: 0,
+    });
+  }
+
   // ==== МАСШТАБИРОВАНИЕ ====
   function fitCanvas() {
     const wrap = document.getElementById('canvas-wrap');
@@ -149,15 +185,15 @@
     return tileAt(worldX, worldY) === TILE_FLOOR;
   }
 
-  function canStand(cx, cy) {
-    const half = PLAYER_SIZE / 2;
+  // Универсальная проверка: помещается ли объект size×size в позицию (cx, cy)
+  function canStand(cx, cy, size) {
+    const half = size / 2;
     return isWalkable(cx - half, cy - half) &&
            isWalkable(cx + half, cy - half) &&
            isWalkable(cx - half, cy + half) &&
            isWalkable(cx + half, cy + half);
   }
 
-  // Для пуль — проверяем только центр (пули мелкие)
   function bulletHitsWall(cx, cy) {
     return !isWalkable(cx, cy);
   }
@@ -185,10 +221,11 @@
     gameTime += dt;
     updatePlayer(dt);
     updateBullets(dt);
+    updateEnemies(dt);
+    checkBulletEnemyCollisions();
   }
 
   function updatePlayer(dt) {
-    // Движение
     let dx = 0, dy = 0;
     if (keys.w) dy -= 1;
     if (keys.s) dy += 1;
@@ -206,19 +243,17 @@
       const newX = player.x + dx * step;
       const newY = player.y + dy * step;
 
-      if (canStand(newX, player.y)) player.x = newX;
-      if (canStand(player.x, newY)) player.y = newY;
+      if (canStand(newX, player.y, PLAYER_SIZE)) player.x = newX;
+      if (canStand(player.x, newY, PLAYER_SIZE)) player.y = newY;
 
       player.dir.x = dx;
       player.dir.y = dy;
     }
 
-    // Кулдаун стрельбы
     if (player.shootCooldown > 0) {
       player.shootCooldown -= dt;
     }
 
-    // Стрельба — если нажата хотя бы одна стрелка и кулдаун прошёл
     if (player.shootCooldown <= 0) {
       let sx = 0, sy = 0;
       if (shootKeys.up) sy -= 1;
@@ -234,11 +269,9 @@
   }
 
   function fire(sx, sy) {
-    // Точка старта — от центра игрока в сторону выстрела, чтобы пуля не «спавнилась» в игроке
     const offset = PLAYER_SIZE / 2 + BULLET_SIZE / 2 - 2;
     const bx = player.x + sx * offset;
     const by = player.y + sy * offset;
-
     bullets.push({
       x: bx,
       y: by,
@@ -255,10 +288,57 @@
       b.y += b.vy * dt;
       b.life -= dt;
 
-      // Удаление: стена или истёк срок
       if (b.life <= 0 || bulletHitsWall(b.x, b.y)) {
         bullets.splice(i, 1);
       }
+    }
+  }
+
+  function updateEnemies(dt) {
+    enemies.forEach(e => {
+      // Направление на игрока
+      let dx = player.x - e.x;
+      let dy = player.y - e.y;
+      const len = Math.hypot(dx, dy);
+      if (len < 1) return;
+      dx /= len;
+      dy /= len;
+
+      const step = e.speed * dt;
+      const newX = e.x + dx * step;
+      const newY = e.y + dy * step;
+
+      // Раздельные проверки по осям — скольжение вдоль стен
+      if (canStand(newX, e.y, ENEMY_SIZE)) e.x = newX;
+      if (canStand(e.x, newY, ENEMY_SIZE)) e.y = newY;
+
+      // Таймер вспышки
+      if (e.flash > 0) e.flash -= dt;
+    });
+  }
+
+  function checkBulletEnemyCollisions() {
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const b = bullets[i];
+      let bulletUsed = false;
+
+      for (let j = enemies.length - 1; j >= 0; j--) {
+        const e = enemies[j];
+        const half = ENEMY_SIZE / 2;
+        if (b.x > e.x - half && b.x < e.x + half &&
+            b.y > e.y - half && b.y < e.y + half) {
+          e.hp -= 1;
+          e.flash = ENEMY_HIT_FLASH;
+          bulletUsed = true;
+          if (e.hp <= 0) {
+            enemies.splice(j, 1);
+            // Можно спавнить нового для теста — пока нет
+          }
+          break;
+        }
+      }
+
+      if (bulletUsed) bullets.splice(i, 1);
     }
   }
 
@@ -268,6 +348,7 @@
     drawWalls();
     drawDoors();
     drawBullets();
+    drawEnemies();
     drawPlayer();
     drawDebug();
   }
@@ -354,14 +435,42 @@
     });
   }
 
+  function drawEnemies() {
+    enemies.forEach(e => {
+      // Тень
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.beginPath();
+      ctx.ellipse(e.x, e.y + 9, 10, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Спрайт
+      ctx.drawImage(bugImg, e.x - 16, e.y - 16, 32, 32);
+
+      // Вспышка при попадании
+      if (e.flash > 0) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${e.flash / ENEMY_HIT_FLASH * 0.6})`;
+        ctx.fillRect(e.x - 16, e.y - 16, 32, 32);
+      }
+
+      // HP-полоска над врагом
+      const hpW = 28;
+      const hpH = 4;
+      const hpX = e.x - hpW / 2;
+      const hpY = e.y - 22;
+      ctx.fillStyle = COLORS.hpEmpty;
+      ctx.fillRect(hpX, hpY, hpW, hpH);
+      ctx.fillStyle = COLORS.hpFull;
+      const hpFillW = Math.max(0, (e.hp / e.maxHp) * hpW);
+      ctx.fillRect(hpX, hpY, hpFillW, hpH);
+    });
+  }
+
   function drawPlayer() {
-    // Тень
     ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
     ctx.beginPath();
     ctx.ellipse(player.x, player.y + 10, 10, 4, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Спрайт
     ctx.drawImage(droidImg, player.x - 16, player.y - 16, 32, 32);
   }
 
@@ -370,7 +479,10 @@
     ctx.fillStyle = 'rgba(138, 143, 168, 0.5)';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText(`v0.0.4 · ${ROOM_COLS}×${ROOM_ROWS} · bullets: ${bullets.length}`, 6, 6);
+    ctx.fillText(
+      `v0.0.5 · enemies: ${enemies.length} · bullets: ${bullets.length}`,
+      6, 6
+    );
   }
 
   // ==== УПРАВЛЕНИЕ ====
@@ -382,14 +494,11 @@
     }
 
     const k = e.key.toLowerCase();
-
-    // Движение WASD
     if (k === 'w' || k === 'ц') keys.w = true;
     if (k === 'a' || k === 'ф') keys.a = true;
     if (k === 's' || k === 'ы') keys.s = true;
     if (k === 'd' || k === 'в') keys.d = true;
 
-    // Стрельба стрелками
     if (e.key === 'ArrowUp')    { e.preventDefault(); shootKeys.up = true; }
     if (e.key === 'ArrowDown')  { e.preventDefault(); shootKeys.down = true; }
     if (e.key === 'ArrowLeft')  { e.preventDefault(); shootKeys.left = true; }
