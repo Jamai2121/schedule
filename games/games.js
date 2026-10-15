@@ -41,15 +41,18 @@ function setBest(id, value) {
 }
 
 function formatBest(id) {
+  const game = window.GAMES[id];
+  // Игра может иметь собственное хранилище рекордов
+  if (game && typeof game.hasBest === 'function' && game.hasBest()) {
+    return game.formatBest();
+  }
   const best = getBest(id);
   if (!best) return null;
-  const game = window.GAMES[id];
   if (game && typeof game.formatBest === 'function') {
     return game.formatBest(best.value);
   }
   return String(best.value);
 }
-
 // ==== ТЕМА ====
 (function initTheme() {
   const btn = document.getElementById('theme-toggle');
