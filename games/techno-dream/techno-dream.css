@@ -45,6 +45,11 @@ body {
   z-index: 10;
 }
 
+/* Левая группа: кнопка ← + HP */
+#hud-top > .hud-btn:first-child {
+  margin-right: 0;
+}
+
 .hud-btn {
   width: 36px;
   height: 36px;
@@ -172,4 +177,36 @@ body {
 /* Мобильная адаптация */
 @media (max-width: 600px) {
   #hud-hint { font-size: 10px; padding: 0 8px; text-align: center; }
+}
+/* HP-контейнеры */
+.hud-hp {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-left: 12px;
+}
+
+.hp-icon {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  transition: transform 0.1s;
+}
+
+/* Лёгкое дрожание при потере HP */
+.hp-icon.hit {
+  animation: hp-shake 0.3s ease-out;
+}
+
+@keyframes hp-shake {
+  0%   { transform: translateX(0) scale(1.3); }
+  30%  { transform: translateX(-3px) scale(1.1); }
+  60%  { transform: translateX(3px) scale(1.1); }
+  100% { transform: translateX(0) scale(1); }
+}
+
+/* Оверлей поражения */
+.overlay-content h2.defeat {
+  color: #ef4444;
 }
