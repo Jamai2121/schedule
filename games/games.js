@@ -1,12 +1,4 @@
 // ==== РЕЕСТР ИГР ====
-// Каждая игра регистрируется здесь. Файл игры должен вызвать registerGame(...)
-// Интерфейс игры:
-//   name    — название
-//   emoji   — эмодзи для карточки
-//   desc    — краткое описание
-//   mount(stage, onScore) — запустить игру в stage, вызывать onScore(score) при обновлении
-//   unmount() — остановить игру, очистить таймеры
-//   getBest() — вернуть строку с лучшим результатом (например, "1024 очка")
 window.GAMES = {};
 
 function registerGame(id, config) {
@@ -35,24 +27,21 @@ function setBest(id, value) {
   if (!current || value > current.value) {
     all[id] = { value, date: Date.now() };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
-    return true; // новый рекорд
+    return true;
   }
   return false;
 }
 
 function formatBest(id) {
-  const game = window.GAMES[id];
-  // Игра может иметь собственное хранилище рекордов
-  if (game && typeof game.hasBest === 'function' && game.hasBest()) {
-    return game.formatBest();
-  }
   const best = getBest(id);
   if (!best) return null;
+  const game = window.GAMES[id];
   if (game && typeof game.formatBest === 'function') {
     return game.formatBest(best.value);
   }
   return String(best.value);
 }
+
 // ==== ТЕМА ====
 (function initTheme() {
   const btn = document.getElementById('theme-toggle');
@@ -93,12 +82,15 @@ function renderCards() {
     card.dataset.game = id;
 
     const best = formatBest(id);
+    const bestBlock = game.external
+      ? ''
+      : `<div class="game-card-best">${best ? `Рекорд: <strong>${best}</strong>` : 'Рекорда пока нет'}</div>`;
 
     card.innerHTML = `
       <div class="game-card-emoji">${game.emoji || '🎮'}</div>
       <div class="game-card-title">${game.name || id}</div>
       <div class="game-card-desc">${game.desc || ''}</div>
-      <div class="game-card-best">${best ? `Рекорд: <strong>${best}</strong>` : 'Рекорда пока нет'}</div>
+      ${bestBlock}
     `;
 
     card.addEventListener('click', () => openGame(id));
@@ -113,6 +105,12 @@ function openGame(id) {
   const game = window.GAMES[id];
   if (!game) return;
 
+  // Внешняя игра — открываем отдельной страницей
+  if (game.external) {
+    window.location.href = game.url;
+    return;
+  }
+
   currentGameId = id;
   document.getElementById('game-title').textContent = game.name || id;
 
@@ -124,7 +122,6 @@ function openGame(id) {
   const stage = document.getElementById('game-stage');
   stage.innerHTML = '';
 
-  // onScore вызывается игрой при обновлении очков
   const onScore = (score) => {
     const isNew = setBest(id, score);
     if (isNew) {
@@ -164,7 +161,15 @@ document.addEventListener('keydown', e => {
 });
 
 // ==== СТАРТ ====
-// Рендер карточек после того, как все игры зарегистрировались
 window.addEventListener('load', () => {
   renderCards();
+
+  // Регистрация внешней игры Techno_Dream
+  registerGame('techno-dream', {
+    name: 'Techno_Dream',
+    emoji: '🚀',
+    desc: 'Рогалик. Дроид-уборщик чистит ошибки системы на бесконечном корабле.',
+    external: true,
+    url: './techno-dream/',
+  });
 });
