@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Techno_Dream</title>
+<link rel="stylesheet" href="techno-dream.css">
+    <!-- Tiny5 подключается ЛОКАЛЬНО через @font-face в techno-dream.css (папка fonts/):
+    CDN (Google Fonts / jsdelivr) нестабильны в Яндекс Браузере и на RF-сетях -->
+</head>
+<body class="dark">
+    <div id="game-wrap">
+        <!-- Верхний HUD -->
+        <div id="hud-top">
+            <div class="hud-left">
+                <button id="theme-toggle" class="hud-btn" title="Сменить тему">🌙</button>
+                <a href="../../games/" class="hud-btn" title="Выйти">←</a>
+            </div>
+
+            <div class="hud-stats">
+                <div id="hud-hp" class="hud-hp"></div>
+                <div class="hud-stats-row">
+                    <div class="stat-item">
+                        <img id="stat-damage" class="stat-icon" src="./sprites/stat-damage.png" alt="Урон">
+                        <span id="stat-damage-value">1.0</span>
+                    </div>
+                    <div class="stat-item">
+                        <img id="stat-speed" class="stat-icon" src="./sprites/stat-speed.png" alt="Скорость">
+                        <span id="stat-speed-value">4.5</span>
+                    </div>
+                    <div class="stat-item">
+                        <img id="stat-firerate" class="stat-icon" src="./sprites/stat-firerate.png" alt="Скорострельность">
+                        <span id="stat-firerate-value">0.40</span>
+                    </div>
+                    <div class="stat-item">
+                        <img id="stat-range" class="stat-icon" src="./sprites/stat-range.png" alt="Дальность">
+                        <span id="stat-range-value">15.0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Область игры -->
+        <div id="canvas-wrap">
+            <canvas id="game-canvas"></canvas>
+        </div>
+
+        <!-- Нижний HUD -->
+        <div id="hud-bottom">
+            <span id="hud-hint">WASD — движение · Стрелки — стрельба · Esc — пауза</span>
+        </div>
+    </div>
+
+    <!-- Главное меню -->
+    <div id="main-menu" class="overlay">
+        <div class="overlay-content">
+            <h1>Techno_Dream</h1>
+            <button id="start-btn" class="game-btn">Играть</button>
+            <a href="../../games/" class="game-btn secondary">Выйти</a>
+        </div>
+    </div>
+
+    <!-- Оверлей паузы -->
+    <div id="pause-overlay" class="overlay hidden">
+        <div class="overlay-content">
+            <h2>Пауза</h2>
+            <button id="resume-btn" class="game-btn">Продолжить</button>
+            <a href="../../games/" class="game-btn secondary">Выйти</a>
+        </div>
+    </div>
+
+    <!-- Оверлей поражения (отдельный: меню паузы больше не ломается после смерти) -->
+    <div id="gameover-overlay" class="overlay hidden">
+        <div class="overlay-content">
+            <h2 class="defeat">Поражение</h2>
+            <button id="restart-btn" class="game-btn">Заново</button>
+            <a href="../../games/" class="game-btn secondary">Выйти</a>
+        </div>
+    </div>
+
+    <!-- Оверлей победы -->
+    <div id="victory-overlay" class="overlay hidden">
+        <div class="overlay-content">
+            <h2 class="victory">Победа!</h2>
+            <p>Спасибо за бетатест</p>
+            <button id="restart-v-btn" class="game-btn">Заново</button>
+            <a href="../../games/" class="game-btn secondary">Выйти</a>
+        </div>
+    </div>
+
+    <script type="module" src="techno-dream.js"></script>
+</body>
+</html>
