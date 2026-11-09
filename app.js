@@ -5,10 +5,6 @@ import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'https://www.gstati
 const ADMIN_UID = "g4WjPt0LYacG8f5Z0C1pzHRVtf82";
 const isAdmin = () => currentUserProfile && currentUserProfile.uid === ADMIN_UID;
 
-// ВСТАВЬ СЮДА СВОЙ UID из Шага 1
-const ADMIN_UID = "g4WjPt0LYacG8f5Z0ClpzhRVtf82"; 
-const isAdmin = () => currentUserProfile && currentUserProfile.uid === ADMIN_UID;
-
 const firebaseConfig = {
   apiKey: "AIzaSyDBStXp_31wtJF_QoyJKKTlcXbhWVNJ3KI",
   authDomain: "schedule-am261.firebaseapp.com",
