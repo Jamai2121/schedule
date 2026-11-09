@@ -2,6 +2,9 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
 import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
+const ADMIN_UID = "g4WjPt0LYacG8f5Z0C1pzHRVtf82";
+const isAdmin = () => currentUserProfile && currentUserProfile.uid === ADMIN_UID;
+
 // ВСТАВЬ СЮДА СВОЙ UID из Шага 1
 const ADMIN_UID = "g4WjPt0LYacG8f5Z0ClpzhRVtf82"; 
 const isAdmin = () => currentUserProfile && currentUserProfile.uid === ADMIN_UID;
@@ -418,35 +421,25 @@ async function openPairModal(pair) {
         if (!text) return alert('Введите текст ДЗ');
         saveBtn.textContent = 'Сохранение...';
         saveBtn.disabled = true;
-try {
-  // Проверяем, существует ли документ
-  const existingSnap = await getDoc(hwRef);
-  
-  if (existingSnap.exists()) {
-    // Документ есть — обновляем через updateDoc
-    await updateDoc(hwRef, {
-      text: text,
-      authorFio: currentUserProfile.fio,
-      authorUid: currentUserProfile.uid,
-      pairId: pair.id,
-      weekNumber: weekNumber,
-      timestamp: Date.now()
-    });
-  } else {
-    // Документа нет — создаём через setDoc
-    await setDoc(hwRef, {
-      text: text,
-      authorFio: currentUserProfile.fio,
-      authorUid: currentUserProfile.uid,
-      pairId: pair.id,
-      weekNumber: weekNumber,
-      timestamp: Date.now()
-    });
-  }
-  openPairModal(pair);
-} catch (e) {
+        try {
+          const existingSnap = await getDoc(hwRef);
+          const hwPayload = {
+            text: text,
+            authorFio: currentUserProfile.fio,
+            authorUid: currentUserProfile.uid,
+            pairId: pair.id,
+            weekNumber: weekNumber,
+            timestamp: Date.now()
+          };
+          if (existingSnap.exists()) {
+            await updateDoc(hwRef, hwPayload);
+          } else {
+            await setDoc(hwRef, hwPayload);
+          }
+          openPairModal(pair);
+        } catch (e) {
           console.error(e);
-          alert('Ошибка: ' + (e.code === 'permission-denied' ? 'Нет прав (возможно, вы замьючены или ДЗ уже занято)' : e.message));
+          alert('Ошибка: ' + (e.code === 'permission-denied' ? 'Нет прав' : e.message));
           saveBtn.textContent = 'Попробовать снова';
           saveBtn.disabled = false;
         }
