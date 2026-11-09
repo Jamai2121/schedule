@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
 const ADMIN_UID = "g4WjPt0LYacG8f5Z0ClpzhRVtf82";
 const isAdmin = () => currentUserProfile && currentUserProfile.uid === ADMIN_UID;
@@ -29,16 +29,14 @@ const DAY_NAMES = {
 };
 const JS_DAY_TO_KEY = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
 const DAY_ORDER = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
-
-const START_OF_SEMESTER = { month: 7, day: 31 }; // 7 = август, 31 = понедельник
+const START_OF_SEMESTER = { month: 7, day: 31 };
 const PAIR_DURATION_MIN = 95;
 const ONLINE_COURSE_URL = 'http://open.kemsu.ru/';
 
 // ==== АВТОРИЗАЦИЯ ====
 function translit(s) {
   const map = { 'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya' };
-  return s.toLowerCase().split('').map(ch => (map[ch] !== undefined ? map[ch] : ch)).join('')
-    .replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
+  return s.toLowerCase().split('').map(ch => (map[ch] !== undefined ? map[ch] : ch)).join('').replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
 }
 const emailFromFio = fio => translit(fio) + '@am261.app';
 
@@ -48,23 +46,11 @@ let authOverlay = null;
 function buildAuthScreen() {
   const overlay = document.createElement('div');
   overlay.className = 'auth-overlay';
-  overlay.innerHTML = `
-    <div class="auth-card">
-      <h2>Вход в расписание</h2>
-      <input id="auth-fio" type="text" placeholder="ФИО полностью (Иванов Иван Иванович)" autocomplete="name">
-      <input id="auth-pass" type="password" placeholder="Пароль (мин. 6 символов)">
-      <div class="auth-row">
-        <button id="auth-login" class="auth-btn">Войти</button>
-        <button id="auth-register" class="auth-btn secondary">Регистрация</button>
-      </div>
-      <div id="auth-error" class="auth-error"></div>
-    </div>`;
+  overlay.innerHTML = `<div class="auth-card"><h2>Вход в расписание</h2><input id="auth-fio" type="text" placeholder="ФИО полностью" autocomplete="name"><input id="auth-pass" type="password" placeholder="Пароль (мин. 6 символов)"><div class="auth-row"><button id="auth-login" class="auth-btn">Войти</button><button id="auth-register" class="auth-btn secondary">Регистрация</button></div><div id="auth-error" class="auth-error"></div></div>`;
   document.body.appendChild(overlay);
-
   const fioEl = overlay.querySelector('#auth-fio');
   const passEl = overlay.querySelector('#auth-pass');
   const errEl = overlay.querySelector('#auth-error');
-
   const doAuth = async (mode) => {
     errEl.textContent = '';
     const fio = fioEl.value.trim();
@@ -80,10 +66,10 @@ function buildAuthScreen() {
         await signInWithEmailAndPassword(auth, email, pass);
       }
     } catch (e) {
-      if (e.code === 'auth/email-already-in-use') errEl.textContent = 'Такой пользователь уже есть — нажми «Войти»';
+      if (e.code === 'auth/email-already-in-use') errEl.textContent = 'Пользователь уже есть — нажми «Войти»';
       else if (['auth/invalid-credential','auth/wrong-password','auth/user-not-found'].includes(e.code)) errEl.textContent = 'Неверное ФИО или пароль';
       else if (e.code === 'auth/weak-password') errEl.textContent = 'Пароль слабый (мин. 6 символов)';
-      else if (e.code === 'auth/too-many-requests') errEl.textContent = 'Слишком много попыток, подожди минуту';
+      else if (e.code === 'auth/too-many-requests') errEl.textContent = 'Слишком много попыток';
       else errEl.textContent = 'Ошибка: ' + e.code;
     }
   };
@@ -118,14 +104,7 @@ onAuthStateChanged(auth, user => {
 });
 
 // ==== СОСТОЯНИЕ ====
-let DATA = {
-  schedule: null,
-  homework: {},
-  books: {},
-  info: { items: [] },
-  overrides: {},
-  variants: { items: [] },
-};
+let DATA = { schedule: null, homework: {}, books: {}, info: { items: [] }, overrides: {}, variants: { items: [] } };
 let currentWeekOffset = 0;
 let subgroupFilter = localStorage.getItem('subgroup') || 'all';
 
@@ -135,7 +114,6 @@ async function loadJSON(path) {
   if (!res.ok) throw new Error(`Не удалось загрузить ${path}`);
   return res.json();
 }
-
 async function loadAll() {
   const [schedule, homework, books, info, overrides, variants] = await Promise.all([
     loadJSON('./data/schedule.json'),
@@ -150,20 +128,14 @@ async function loadAll() {
 
 // ==== НЕДЕЛИ ====
 function getWeekNumber(offset = 0) {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-
+  const now = new Date(); now.setHours(0, 0, 0, 0);
   const start = new Date(now.getFullYear(), START_OF_SEMESTER.month, START_OF_SEMESTER.day);
   start.setHours(0, 0, 0, 0);
   if (now < start) start.setFullYear(start.getFullYear() - 1);
-
   const base = Math.floor((now - start) / (7 * 86400000)) + 1;
   return base + offset;
 }
-
-function getParity(weekNumber) {
-  return weekNumber % 2 === 1 ? 'odd' : 'even';
-}
+function getParity(weekNumber) { return weekNumber % 2 === 1 ? 'odd' : 'even'; }
 
 // ==== OVERRIDES ====
 function applyOverrides(weekNumber, pairs) {
@@ -174,11 +146,7 @@ function applyOverrides(weekNumber, pairs) {
     if (o.action === 'cancel') cancelIds.add(o.id);
     if (o.action === 'note') notes[o.id] = o.note;
   });
-  return pairs.map(p => ({
-    ...p,
-    note: notes[p.id] || null,
-    cancelled: cancelIds.has(p.id),
-  }));
+  return pairs.map(p => ({ ...p, note: notes[p.id] || null, cancelled: cancelIds.has(p.id) }));
 }
 
 // ==== ВРЕМЯ ====
@@ -188,7 +156,6 @@ function timeToMinutes(t) {
   if (isNaN(h) || isNaN(m)) return null;
   return h * 60 + m;
 }
-
 function formatTime(start) {
   if (!start) return '';
   const startMin = timeToMinutes(start);
@@ -198,12 +165,7 @@ function formatTime(start) {
   const endM = String(endMin % 60).padStart(2, '0');
   return `${start} – ${endH}:${endM}`;
 }
-
-function nowMinutes() {
-  const d = new Date();
-  return d.getHours() * 60 + d.getMinutes();
-}
-
+function nowMinutes() { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
 function getPairStatus(pair) {
   const start = timeToMinutes(pair.time);
   if (start === null) return { status: 'unknown', progress: 0 };
@@ -216,12 +178,9 @@ function getPairStatus(pair) {
   }
   return { status: 'future', progress: 0 };
 }
-
 function countUniqueSlots(pairs) {
   const slots = new Set();
-  pairs.forEach(p => {
-    slots.add(p.time || '');
-  });
+  pairs.forEach(p => slots.add(p.time || ''));
   return slots.size;
 }
 
@@ -234,50 +193,41 @@ function renderHeader(weekNumber) {
 }
 
 async function renderSchedule(weekNumber) {
-const parity = getParity(weekNumber);
-const container = document.getElementById('schedule');
-container.innerHTML = '';
-const todayKey = JS_DAY_TO_KEY[new Date().getDay()];
-const isCurrentWeek = currentWeekOffset === 0;
+  const parity = getParity(weekNumber);
+  const container = document.getElementById('schedule');
+  container.innerHTML = '';
+  const todayKey = JS_DAY_TO_KEY[new Date().getDay()];
+  const isCurrentWeek = currentWeekOffset === 0;
 
-// Загружаем ДЗ из Firestore для текущей недели
-const hw = {};
-try {
-const { collection, query, where, getDocs } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
-const hwQuery = query(collection(db, 'homework'), where('weekNumber', '==', weekNumber));
-const snapshot = await getDocs(hwQuery);
-snapshot.forEach(doc => {
-const data = doc.data();
-hw[data.pairId] = data.text;
-});
-} catch (e) {
-console.error('Ошибка загрузки ДЗ:', e);
-}
+  // Загружаем ДЗ из Firestore
+  const hw = {};
+  try {
+    const hwQuery = query(collection(db, 'homework'), where('weekNumber', '==', weekNumber));
+    const snapshot = await getDocs(hwQuery);
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      if (data.pairId) hw[data.pairId] = data.text;
+    });
+  } catch (e) {
+    console.error('Ошибка загрузки ДЗ:', e);
+  }
 
   DAY_ORDER.forEach(dayKey => {
     const basePairs = (DATA.schedule[parity] && DATA.schedule[parity][dayKey]) || [];
     let pairs = applyOverrides(weekNumber, basePairs);
-
     if (subgroupFilter !== 'all') {
       const sg = Number(subgroupFilter);
       pairs = pairs.filter(p => !p.subgroup || p.subgroup === sg);
     }
-
     const dayEl = document.createElement('div');
     dayEl.className = 'day' + (isCurrentWeek && dayKey === todayKey ? ' today' : '');
     dayEl.dataset.day = dayKey;
-
     const title = document.createElement('div');
     title.className = 'day-title';
     const displayCount = countUniqueSlots(pairs);
-    const pairsWord = displayCount === 1
-      ? 'пара'
-      : (displayCount >= 2 && displayCount <= 4 ? 'пары' : 'пар');
-    title.textContent = displayCount > 0
-      ? `${DAY_NAMES[dayKey]} · ${displayCount} ${pairsWord}`
-      : DAY_NAMES[dayKey];
+    const pairsWord = displayCount === 1 ? 'пара' : (displayCount >= 2 && displayCount <= 4 ? 'пары' : 'пар');
+    title.textContent = displayCount > 0 ? `${DAY_NAMES[dayKey]} · ${displayCount} ${pairsWord}` : DAY_NAMES[dayKey];
     dayEl.appendChild(title);
-
     if (pairs.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'empty';
@@ -285,25 +235,20 @@ console.error('Ошибка загрузки ДЗ:', e);
       dayEl.appendChild(empty);
     } else {
       const isToday = isCurrentWeek && dayKey === todayKey;
-pairs.forEach(pair => {
-  dayEl.appendChild(renderPair(pair, isToday));
-});
+      pairs.forEach(pair => {
+        dayEl.appendChild(renderPair(pair, hw[pair.id] || '', isToday));
+      });
     }
-
     container.appendChild(dayEl);
   });
 
   if (isCurrentWeek) {
     const todayEl = container.querySelector('.day.today');
-    if (todayEl) {
-      setTimeout(() => {
-        todayEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
-    }
+    if (todayEl) setTimeout(() => todayEl.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
   }
 }
 
-function renderPair(pair, isToday) {
+function renderPair(pair, homework, isToday) {
   const el = document.createElement('div');
   el.className = 'pair';
   if (pair.cancelled) el.classList.add('cancelled');
@@ -340,6 +285,12 @@ function renderPair(pair, isToday) {
     note.textContent = pair.note;
     subject.appendChild(note);
   }
+  if (homework) {
+    const hwBadge = document.createElement('span');
+    hwBadge.className = 'pair-hw';
+    hwBadge.textContent = 'ДЗ';
+    subject.appendChild(hwBadge);
+  }
   if (pair.online) {
     const onlineBtn = document.createElement('a');
     onlineBtn.className = 'pair-online-btn';
@@ -371,17 +322,12 @@ function renderPair(pair, isToday) {
 // ==== МОДАЛКА ПАРЫ ====
 async function openPairModal(pair) {
   document.getElementById('modal-title').textContent = pair.subject || 'Пара';
-  const meta = [
-    formatTime(pair.time),
-    pair.room ? `ауд. ${pair.room}` : null,
-    pair.subgroup ? `Подгруппа ${pair.subgroup}` : null,
-  ].filter(Boolean).join(' · ');
+  const meta = [formatTime(pair.time), pair.room ? `ауд. ${pair.room}` : null, pair.subgroup ? `Подгруппа ${pair.subgroup}` : null].filter(Boolean).join(' · ');
   document.getElementById('modal-meta').textContent = meta;
 
   const weekNumber = getWeekNumber(currentWeekOffset);
   const hwDocId = `${weekNumber}_${pair.id}`;
   const hwRef = doc(db, 'homework', hwDocId);
-
   const modalBody = document.getElementById('modal-homework');
   modalBody.innerHTML = '<div style="color:var(--muted)">Загрузка ДЗ...</div>';
 
@@ -402,10 +348,8 @@ async function openPairModal(pair) {
 
     const canEdit = !hwData || isAdmin();
     if (canEdit) {
-      html += `
-        <textarea id="hw-input" placeholder="Введите домашнее задание..." style="width:100%;min-height:80px;padding:10px;border-radius:8px;border:1px solid var(--hover);background:var(--bg);color:var(--text);resize:vertical;margin-bottom:8px;">${hwData ? hwData.text : ''}</textarea>
-        <button id="hw-save" class="auth-btn" style="width:100%;">${hwData ? 'Обновить ДЗ (Админ)' : 'Сохранить ДЗ'}</button>
-      `;
+      html += `<textarea id="hw-input" placeholder="Введите домашнее задание..." style="width:100%;min-height:80px;padding:10px;border-radius:8px;border:1px solid var(--hover);background:var(--bg);color:var(--text);resize:vertical;margin-bottom:8px;">${hwData ? hwData.text : ''}</textarea>`;
+      html += `<button id="hw-save" class="auth-btn" style="width:100%;">${hwData ? 'Обновить ДЗ (Админ)' : 'Сохранить ДЗ'}</button>`;
     } else {
       html += `<div style="font-size:12px;color:var(--muted);font-style:italic;">Редактирование доступно только автору или админу.</div>`;
     }
@@ -431,19 +375,9 @@ async function openPairModal(pair) {
         saveBtn.disabled = true;
         try {
           const existingSnap = await getDoc(hwRef);
-          const hwPayload = {
-            text: text,
-            authorFio: currentUserProfile.fio,
-            authorUid: currentUserProfile.uid,
-            pairId: pair.id,
-            weekNumber: weekNumber,
-            timestamp: Date.now()
-          };
-          if (existingSnap.exists()) {
-            await updateDoc(hwRef, hwPayload);
-          } else {
-            await setDoc(hwRef, hwPayload);
-          }
+          const hwPayload = { text, authorFio: currentUserProfile.fio, authorUid: currentUserProfile.uid, pairId: pair.id, weekNumber, timestamp: Date.now() };
+          if (existingSnap.exists()) await updateDoc(hwRef, hwPayload);
+          else await setDoc(hwRef, hwPayload);
           openPairModal(pair);
         } catch (e) {
           console.error(e);
@@ -460,15 +394,13 @@ async function openPairModal(pair) {
 
   document.getElementById('modal').classList.remove('hidden');
 }
-// ==== МОДАЛКА КНИГ ====
+
+// ==== МОДАЛКИ ====
 function renderBooks() {
   const body = document.getElementById('books-body');
   body.innerHTML = '';
   const subjects = Object.keys(DATA.books || {});
-  if (subjects.length === 0) {
-    body.textContent = 'Список учебников пуст';
-    return;
-  }
+  if (subjects.length === 0) { body.textContent = 'Список учебников пуст'; return; }
   subjects.forEach(subject => {
     const group = document.createElement('div');
     group.className = 'book-group';
@@ -487,25 +419,15 @@ function renderBooks() {
     body.appendChild(group);
   });
 }
-
-// ==== МОДАЛКА ИНФО ====
 function renderInfo() {
   const body = document.getElementById('info-body');
   body.innerHTML = '';
   const items = (DATA.info && DATA.info.items) || [];
-  if (items.length === 0) {
-    body.textContent = 'Пока ничего важного';
-    return;
-  }
+  if (items.length === 0) { body.textContent = 'Пока ничего важного'; return; }
   items.forEach(item => {
     const el = document.createElement('div');
     el.className = 'info-item';
-    if (item.date) {
-      const d = document.createElement('div');
-      d.className = 'info-date';
-      d.textContent = item.date;
-      el.appendChild(d);
-    }
+    if (item.date) { const d = document.createElement('div'); d.className = 'info-date'; d.textContent = item.date; el.appendChild(d); }
     const t = document.createElement('div');
     t.className = 'info-text';
     t.textContent = item.text;
@@ -513,94 +435,45 @@ function renderInfo() {
     body.appendChild(el);
   });
 }
-
-// ==== МОДАЛКА ВАРИАНТОВ ====
 function renderVariants() {
-const body = document.getElementById('variants-body');
-body.innerHTML = '';
-const items = (DATA.variants && DATA.variants.items) || [];
-if (items.length === 0) {
-body.textContent = 'Список пуст';
-return;
-}
-const table = document.createElement('table');
-table.className = 'variants-table';
-const thead = document.createElement('thead');
-thead.innerHTML = '<tr><th>№</th><th>Фамилия</th><th>Имя</th></tr>';
-table.appendChild(thead);
-const tbody = document.createElement('tbody');
-items.forEach(it => {
-const tr = document.createElement('tr');
-tr.innerHTML = `<td class="num">${it.n}</td><td>${it.last}</td><td>${it.first}</td>`;
-tbody.appendChild(tr);
-});
-table.appendChild(tbody);
-body.appendChild(table);
-}
-
-// ==== ЗАКРЫТИЕ МОДАЛОК ====
-function closeModalById(id) {
-  document.getElementById(id).classList.add('hidden');
-}
-
-document.querySelectorAll('[data-close]').forEach(btn => {
-  btn.addEventListener('click', () => closeModalById(btn.dataset.close));
-});
-
-document.querySelectorAll('.modal').forEach(modal => {
-  modal.addEventListener('click', e => {
-    if (e.target === modal) modal.classList.add('hidden');
+  const body = document.getElementById('variants-body');
+  body.innerHTML = '';
+  const items = (DATA.variants && DATA.variants.items) || [];
+  if (items.length === 0) { body.textContent = 'Список пуст'; return; }
+  const table = document.createElement('table');
+  table.className = 'variants-table';
+  const thead = document.createElement('thead');
+  thead.innerHTML = '<tr><th>№</th><th>Фамилия</th><th>Имя</th></tr>';
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  items.forEach(it => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="num">${it.n}</td><td>${it.last}</td><td>${it.first}</td>`;
+    tbody.appendChild(tr);
   });
-});
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden'));
-  }
-});
+  table.appendChild(tbody);
+  body.appendChild(table);
+}
+function closeModalById(id) { document.getElementById(id).classList.add('hidden'); }
+document.querySelectorAll('[data-close]').forEach(btn => btn.addEventListener('click', () => closeModalById(btn.dataset.close)));
+document.querySelectorAll('.modal').forEach(modal => modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); }));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); });
 
 // ==== КНОПКИ ====
-document.getElementById('books-btn').addEventListener('click', () => {
-  renderBooks();
-  document.getElementById('books-modal').classList.remove('hidden');
-});
+document.getElementById('books-btn').addEventListener('click', () => { renderBooks(); document.getElementById('books-modal').classList.remove('hidden'); });
+document.getElementById('info-btn').addEventListener('click', () => { renderInfo(); document.getElementById('info-modal').classList.remove('hidden'); });
+document.getElementById('links-btn').addEventListener('click', () => { document.getElementById('links-modal').classList.remove('hidden'); });
+document.getElementById('variants-btn').addEventListener('click', () => { renderVariants(); document.getElementById('variants-modal').classList.remove('hidden'); });
+document.getElementById('prev-week').addEventListener('click', () => { currentWeekOffset -= 1; refresh(); });
+document.getElementById('next-week').addEventListener('click', () => { currentWeekOffset += 1; refresh(); });
+document.getElementById('today-week').addEventListener('click', () => { currentWeekOffset = 0; refresh(); });
 
-document.getElementById('info-btn').addEventListener('click', () => {
-  renderInfo();
-  document.getElementById('info-modal').classList.remove('hidden');
-});
-
-document.getElementById('links-btn').addEventListener('click', () => {
-  document.getElementById('links-modal').classList.remove('hidden');
-});
-
-document.getElementById('variants-btn').addEventListener('click', () => {
-  renderVariants();
-  document.getElementById('variants-modal').classList.remove('hidden');
-});
-
-document.getElementById('prev-week').addEventListener('click', () => {
-  currentWeekOffset -= 1;
-  refresh();
-});
-
-document.getElementById('next-week').addEventListener('click', () => {
-  currentWeekOffset += 1;
-  refresh();
-});
-
-document.getElementById('today-week').addEventListener('click', () => {
-  currentWeekOffset = 0;
-  refresh();
-});
-
-// ==== ФИЛЬТР ПОДГРУППЫ ====
+// ==== ФИЛЬТР ====
 function initSubgroupFilter() {
   const btns = document.querySelectorAll('.sg-btn');
   btns.forEach(btn => {
     if (btn.dataset.sg === subgroupFilter) btn.classList.add('active');
     else btn.classList.remove('active');
-
     btn.addEventListener('click', () => {
       subgroupFilter = btn.dataset.sg;
       localStorage.setItem('subgroup', subgroupFilter);
@@ -617,39 +490,37 @@ function initSubgroupFilter() {
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
   const initial = saved || (prefersDark ? 'dark' : 'light');
   applyTheme(initial);
-
   btn.addEventListener('click', () => {
     const next = document.body.classList.contains('dark') ? 'light' : 'dark';
     applyTheme(next);
     localStorage.setItem('theme', next);
   });
-
   function applyTheme(theme) {
     const isDark = theme === 'dark';
     document.body.classList.toggle('dark', isDark);
-    btn.textContent = isDark ? '☀️' : '🌙';
+    btn.textContent = isDark ? '☀️' : '';
   }
 })();
 
 // ==== ОБНОВЛЕНИЕ ====
 async function refresh() {
-const weekNumber = getWeekNumber(currentWeekOffset);
-renderHeader(weekNumber);
-await renderSchedule(weekNumber);
+  const weekNumber = getWeekNumber(currentWeekOffset);
+  renderHeader(weekNumber);
+  await renderSchedule(weekNumber);
 }
 
 // ==== СТАРТ ====
 (async function init() {
-const status = document.getElementById('status');
-try {
-status.textContent = 'Загружаем расписание…';
-await loadAll();
-initSubgroupFilter();
-await refresh();
-status.textContent = `Обновлено: ${new Date().toLocaleTimeString('ru-RU')}`;
-setInterval(refresh, 60000);
-} catch (err) {
-console.error(err);
-status.textContent = 'Ошибка загрузки: ' + err.message;
-}
+  const status = document.getElementById('status');
+  try {
+    status.textContent = 'Загружаем расписание…';
+    await loadAll();
+    initSubgroupFilter();
+    await refresh();
+    status.textContent = `Обновлено: ${new Date().toLocaleTimeString('ru-RU')}`;
+    setInterval(refresh, 60000);
+  } catch (err) {
+    console.error(err);
+    status.textContent = 'Ошибка загрузки: ' + err.message;
+  }
 })();
