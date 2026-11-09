@@ -3,12 +3,12 @@ import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, si
 import { getFirestore, doc, setDoc } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDBStXp_31wtJF_QoyJKKTlcXbhWWNJ3KI",
+  apiKey: "AIzaSyDBStXp_31wtJF_QoyJKKTlcXbhWVNJ3KI",
   authDomain: "schedule-am261.firebaseapp.com",
   projectId: "schedule-am261",
   storageBucket: "schedule-am261.firebasestorage.app",
   messagingSenderId: "734656477497",
-  appId: "1:734656477497:web:5fd3ba0c049401574990e0"
+  appId: "1:734656477497:web:5fd3ba0c049401574990e8"
 };
 const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
