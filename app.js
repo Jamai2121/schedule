@@ -274,9 +274,9 @@ function renderSchedule(weekNumber) {
       dayEl.appendChild(empty);
     } else {
       const isToday = isCurrentWeek && dayKey === todayKey;
-      pairs.forEach(pair => {
-        dayEl.appendChild(renderPair(pair, hw[pair.id] || '', isToday));
-      });
+pairs.forEach(pair => {
+  dayEl.appendChild(renderPair(pair, isToday));
+});
     }
 
     container.appendChild(dayEl);
@@ -292,12 +292,10 @@ function renderSchedule(weekNumber) {
   }
 }
 
-function renderPair(pair, homework, isToday) {
+function renderPair(pair, isToday) {
   const el = document.createElement('div');
   el.className = 'pair';
-
   if (pair.cancelled) el.classList.add('cancelled');
-
   if (isToday) {
     const { status, progress } = getPairStatus(pair);
     if (status === 'past') el.classList.add('past');
@@ -309,7 +307,6 @@ function renderPair(pair, homework, isToday) {
       el.appendChild(bar);
     }
   }
-
   const time = document.createElement('div');
   time.className = 'pair-time';
   time.textContent = formatTime(pair.time) || '';
@@ -317,11 +314,9 @@ function renderPair(pair, homework, isToday) {
 
   const info = document.createElement('div');
   info.className = 'pair-info';
-
   const subject = document.createElement('div');
   subject.className = 'pair-subject';
   subject.textContent = pair.subject || 'Без названия';
-
   if (pair.subgroup === 1 || pair.subgroup === 2) {
     const sg = document.createElement('span');
     sg.className = 'pair-subgroup';
@@ -334,12 +329,6 @@ function renderPair(pair, homework, isToday) {
     note.textContent = pair.note;
     subject.appendChild(note);
   }
-  if (homework) {
-    const hwBadge = document.createElement('span');
-    hwBadge.className = 'pair-hw';
-    hwBadge.textContent = 'ДЗ';
-    subject.appendChild(hwBadge);
-  }
   if (pair.online) {
     const onlineBtn = document.createElement('a');
     onlineBtn.className = 'pair-online-btn';
@@ -351,7 +340,6 @@ function renderPair(pair, homework, isToday) {
     subject.appendChild(onlineBtn);
   }
   info.appendChild(subject);
-
   if (pair.teacher) {
     const t = document.createElement('div');
     t.className = 'pair-teacher';
@@ -364,9 +352,8 @@ function renderPair(pair, homework, isToday) {
     r.textContent = 'ауд. ' + pair.room;
     info.appendChild(r);
   }
-
   el.appendChild(info);
-  el.addEventListener('click', () => openPairModal(pair, homework));
+  el.addEventListener('click', () => openPairModal(pair));
   return el;
 }
 
@@ -383,7 +370,7 @@ async function openPairModal(pair) {
   const weekNumber = getWeekNumber(currentWeekOffset);
   const hwDocId = `${weekNumber}_${pair.id}`;
   const hwRef = doc(db, 'homework', hwDocId);
-  
+
   const modalBody = document.getElementById('modal-homework');
   modalBody.innerHTML = '<div style="color:var(--muted)">Загрузка ДЗ...</div>';
 
@@ -394,26 +381,14 @@ async function openPairModal(pair) {
     let html = '';
     if (hwData) {
       html += `<p style="white-space:pre-wrap;margin-bottom:8px;">${hwData.text}</p>`;
-      html += `<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Добавил: ${hwData.authorFio} ${hwData.timestamp ? '(' + new Date(hwData.timestamp).toLocaleDateString('ru-RU') + ')' : ''}</div>`;
-      
-      // Кнопка мута для админа
+      html += `<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Добавил: ${hwData.authorFio || 'неизвестно'} ${hwData.timestamp ? '(' + new Date(hwData.timestamp).toLocaleDateString('ru-RU') + ')' : ''}</div>`;
       if (isAdmin() && hwData.authorUid) {
-        const muteBtn = document.createElement('button');
-        muteBtn.textContent = '🚫 Замутить пользователя';
-        muteBtn.style.cssText = 'font-size:12px;padding:4px 8px;background:#fee2e2;color:#991b1b;border:none;border-radius:6px;cursor:pointer;margin-bottom:12px;';
-        muteBtn.onclick = async () => {
-          if (confirm(`Замутить ${hwData.authorFio}? Он не сможет добавлять ДЗ.`)) {
-            await updateDoc(doc(db, 'users', hwData.authorUid), { isMuted: true });
-            alert('Пользователь замьючен.');
-          }
-        };
-        modalBody.appendChild(muteBtn);
+        html += `<button id="mute-btn" style="font-size:12px;padding:4px 8px;background:#fee2e2;color:#991b1b;border:none;border-radius:6px;cursor:pointer;margin-bottom:12px;">🚫 Замутить ${hwData.authorFio}</button>`;
       }
     } else {
       html += `<p style="color:var(--muted);margin-bottom:12px;">Домашнее задание не указано.</p>`;
     }
 
-    // Поле ввода: показываем, если ДЗ нет ИЛИ если мы админ
     const canEdit = !hwData || isAdmin();
     if (canEdit) {
       html += `
@@ -426,16 +401,23 @@ async function openPairModal(pair) {
 
     modalBody.innerHTML = html;
 
-    // Обработчик сохранения
+    const muteBtn = document.getElementById('mute-btn');
+    if (muteBtn) {
+      muteBtn.addEventListener('click', async () => {
+        if (confirm(`Замутить ${hwData.authorFio}? Он не сможет добавлять ДЗ.`)) {
+          await updateDoc(doc(db, 'users', hwData.authorUid), { isMuted: true });
+          alert('Пользователь замьючен.');
+        }
+      });
+    }
+
     const saveBtn = document.getElementById('hw-save');
     if (saveBtn) {
       saveBtn.addEventListener('click', async () => {
         const text = document.getElementById('hw-input').value.trim();
         if (!text) return alert('Введите текст ДЗ');
-        
         saveBtn.textContent = 'Сохранение...';
         saveBtn.disabled = true;
-
         try {
           await setDoc(hwRef, {
             text: text,
@@ -444,18 +426,16 @@ async function openPairModal(pair) {
             pairId: pair.id,
             weekNumber: weekNumber,
             timestamp: Date.now()
-          }, { merge: true }); // merge: true позволяет админу обновлять существующее
-          
-          openPairModal(pair); // Перерисовать модалку
+          }, { merge: true });
+          openPairModal(pair);
         } catch (e) {
           console.error(e);
-          alert('Ошибка сохранения: ' + (e.code === 'permission-denied' ? 'Нет прав (возможно, вы замьючены или ДЗ уже занято)' : e.message));
+          alert('Ошибка: ' + (e.code === 'permission-denied' ? 'Нет прав (возможно, вы замьючены или ДЗ уже занято)' : e.message));
           saveBtn.textContent = 'Попробовать снова';
           saveBtn.disabled = false;
         }
       });
     }
-
   } catch (e) {
     console.error(e);
     modalBody.innerHTML = '<div style="color:#ef4444">Ошибка загрузки ДЗ</div>';
@@ -463,7 +443,6 @@ async function openPairModal(pair) {
 
   document.getElementById('modal').classList.remove('hidden');
 }
-
 // ==== МОДАЛКА КНИГ ====
 function renderBooks() {
   const body = document.getElementById('books-body');
