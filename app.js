@@ -1,3 +1,19 @@
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+import { getFirestore } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDBStXp_31wtJF_QoyJKKTlcXbhWWNJ3KI",
+  authDomain: "schedule-am261.firebaseapp.com",
+  projectId: "schedule-am261",
+  storageBucket: "schedule-am261.firebasestorage.app",
+  messagingSenderId: "734656477497",
+  appId: "1:734656477497:web:5fd3ba0c049401574990e0"
+};
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+
 // ==== НАСТРОЙКИ ====
 const DAY_NAMES = {
   sunday: 'Воскресенье',
@@ -337,26 +353,26 @@ function renderInfo() {
 
 // ==== МОДАЛКА ВАРИАНТОВ ====
 function renderVariants() {
-  const body = document.getElementById('variants-body');
-  body.innerHTML = '';
-  const items = (DATA.variants && DATA.variants.items) || [];
-  if (items.length === 0) {
-    body.textContent = 'Список пуст';
-    return;
-  }
-  const table = document.createElement('table');
-  table.className = 'variants-table';
-  const thead = document.createElement('thead');
-  thead.innerHTML = '<tr><th>№</th><th>Фамилия</th><th>Имя</th></tr>';
-  table.appendChild(thead);
-  const tbody = document.createElement('tbody');
-  items.forEach(it => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="num">${it.n}</td><td>${it.last}</td><td>${it.first}</td>`;
-    tbody.appendChild(tr);
-  });
-  table.appendChild(tbody);
-  body.appendChild(table);
+const body = document.getElementById('variants-body');
+body.innerHTML = '';
+const items = (DATA.variants && DATA.variants.items) || [];
+if (items.length === 0) {
+body.textContent = 'Список пуст';
+return;
+}
+const table = document.createElement('table');
+table.className = 'variants-table';
+const thead = document.createElement('thead');
+thead.innerHTML = '<tr><th>№</th><th>Фамилия</th><th>Имя</th></tr>';
+table.appendChild(thead);
+const tbody = document.createElement('tbody');
+items.forEach(it => {
+const tr = document.createElement('tr');
+tr.innerHTML = `<td class="num">${it.n}</td><td>${it.last}</td><td>${it.first}</td>`;
+tbody.appendChild(tr);
+});
+table.appendChild(tbody);
+body.appendChild(table);
 }
 
 // ==== ЗАКРЫТИЕ МОДАЛОК ====
