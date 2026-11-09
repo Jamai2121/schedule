@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
-import { getAuth } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-import { getFirestore } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
+import { getFirestore, doc, setDoc } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDBStXp_31wtJF_QoyJKKTlcXbhWWNJ3KI",
@@ -30,6 +30,89 @@ const DAY_ORDER = ['monday','tuesday','wednesday','thursday','friday','saturday'
 const START_OF_SEMESTER = { month: 7, day: 31 }; // 7 = август, 31 = понедельник
 const PAIR_DURATION_MIN = 95;
 const ONLINE_COURSE_URL = 'http://open.kemsu.ru/';
+
+// ==== АВТОРИЗАЦИЯ ====
+function translit(s) {
+  const map = { 'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya' };
+  return s.toLowerCase().split('').map(ch => (map[ch] !== undefined ? map[ch] : ch)).join('')
+    .replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '');
+}
+const emailFromFio = fio => translit(fio) + '@am261.app';
+
+let currentUserProfile = null;
+let authOverlay = null;
+
+function buildAuthScreen() {
+  const overlay = document.createElement('div');
+  overlay.className = 'auth-overlay';
+  overlay.innerHTML = `
+    <div class="auth-card">
+      <h2>Вход в расписание</h2>
+      <input id="auth-fio" type="text" placeholder="ФИО полностью (Иванов Иван Иванович)" autocomplete="name">
+      <input id="auth-pass" type="password" placeholder="Пароль (мин. 6 символов)">
+      <div class="auth-row">
+        <button id="auth-login" class="auth-btn">Войти</button>
+        <button id="auth-register" class="auth-btn secondary">Регистрация</button>
+      </div>
+      <div id="auth-error" class="auth-error"></div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const fioEl = overlay.querySelector('#auth-fio');
+  const passEl = overlay.querySelector('#auth-pass');
+  const errEl = overlay.querySelector('#auth-error');
+
+  const doAuth = async (mode) => {
+    errEl.textContent = '';
+    const fio = fioEl.value.trim();
+    const pass = passEl.value;
+    if (!fio || !pass) { errEl.textContent = 'Заполни оба поля'; return; }
+    const email = emailFromFio(fio);
+    try {
+      if (mode === 'register') {
+        const cred = await createUserWithEmailAndPassword(auth, email, pass);
+        await updateProfile(cred.user, { displayName: fio });
+        await setDoc(doc(db, 'users', cred.user.uid), { fio, email, createdAt: Date.now() });
+      } else {
+        await signInWithEmailAndPassword(auth, email, pass);
+      }
+    } catch (e) {
+      if (e.code === 'auth/email-already-in-use') errEl.textContent = 'Такой пользователь уже есть — нажми «Войти»';
+      else if (['auth/invalid-credential','auth/wrong-password','auth/user-not-found'].includes(e.code)) errEl.textContent = 'Неверное ФИО или пароль';
+      else if (e.code === 'auth/weak-password') errEl.textContent = 'Пароль слабый (мин. 6 символов)';
+      else if (e.code === 'auth/too-many-requests') errEl.textContent = 'Слишком много попыток, подожди минуту';
+      else errEl.textContent = 'Ошибка: ' + e.code;
+    }
+  };
+  overlay.querySelector('#auth-login').addEventListener('click', () => doAuth('login'));
+  overlay.querySelector('#auth-register').addEventListener('click', () => doAuth('register'));
+  passEl.addEventListener('keydown', e => { if (e.key === 'Enter') doAuth('login'); });
+  return overlay;
+}
+
+onAuthStateChanged(auth, user => {
+  if (user) {
+    currentUserProfile = { uid: user.uid, fio: user.displayName || '' };
+    if (authOverlay) { authOverlay.remove(); authOverlay = null; }
+    if (!document.getElementById('user-chip')) {
+      const actions = document.querySelector('.header-actions');
+      if (actions) {
+        const chip = document.createElement('button');
+        chip.id = 'user-chip';
+        chip.className = 'icon-btn';
+        chip.title = 'Выйти';
+        chip.textContent = '👤';
+        chip.addEventListener('click', () => signOut(auth));
+        actions.appendChild(chip);
+      }
+    }
+  } else {
+    currentUserProfile = null;
+    const chip = document.getElementById('user-chip');
+    if (chip) chip.remove();
+    if (!authOverlay) authOverlay = buildAuthScreen();
+  }
+});
 
 // ==== СОСТОЯНИЕ ====
 let DATA = {
