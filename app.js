@@ -233,14 +233,26 @@ function renderHeader(weekNumber) {
   el.innerHTML = `Неделя №${weekNumber}<span class="parity ${parity}">· ${parityText}</span>`;
 }
 
-function renderSchedule(weekNumber) {
-  const parity = getParity(weekNumber);
-  const container = document.getElementById('schedule');
-  container.innerHTML = '';
+async function renderSchedule(weekNumber) {
+const parity = getParity(weekNumber);
+const container = document.getElementById('schedule');
+container.innerHTML = '';
+const todayKey = JS_DAY_TO_KEY[new Date().getDay()];
+const isCurrentWeek = currentWeekOffset === 0;
 
-  const todayKey = JS_DAY_TO_KEY[new Date().getDay()];
-  const isCurrentWeek = currentWeekOffset === 0;
-  const hw = DATA.homework[String(weekNumber)] || {};
+// Загружаем ДЗ из Firestore для текущей недели
+const hw = {};
+try {
+const { collection, query, where, getDocs } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js');
+const hwQuery = query(collection(db, 'homework'), where('weekNumber', '==', weekNumber));
+const snapshot = await getDocs(hwQuery);
+snapshot.forEach(doc => {
+const data = doc.data();
+hw[data.pairId] = data.text;
+});
+} catch (e) {
+console.error('Ошибка загрузки ДЗ:', e);
+}
 
   DAY_ORDER.forEach(dayKey => {
     const basePairs = (DATA.schedule[parity] && DATA.schedule[parity][dayKey]) || [];
@@ -620,25 +632,24 @@ function initSubgroupFilter() {
 })();
 
 // ==== ОБНОВЛЕНИЕ ====
-function refresh() {
-  const weekNumber = getWeekNumber(currentWeekOffset);
-  renderHeader(weekNumber);
-  renderSchedule(weekNumber);
+async function refresh() {
+const weekNumber = getWeekNumber(currentWeekOffset);
+renderHeader(weekNumber);
+await renderSchedule(weekNumber);
 }
 
 // ==== СТАРТ ====
 (async function init() {
-  const status = document.getElementById('status');
-  try {
-    status.textContent = 'Загружаем расписание…';
-    await loadAll();
-    initSubgroupFilter();
-    refresh();
-    status.textContent = `Обновлено: ${new Date().toLocaleTimeString('ru-RU')}`;
-
-    setInterval(refresh, 60000);
-  } catch (err) {
-    console.error(err);
-    status.textContent = 'Ошибка загрузки: ' + err.message;
-  }
+const status = document.getElementById('status');
+try {
+status.textContent = 'Загружаем расписание…';
+await loadAll();
+initSubgroupFilter();
+await refresh();
+status.textContent = `Обновлено: ${new Date().toLocaleTimeString('ru-RU')}`;
+setInterval(refresh, 60000);
+} catch (err) {
+console.error(err);
+status.textContent = 'Ошибка загрузки: ' + err.message;
+}
 })();
