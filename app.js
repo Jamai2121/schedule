@@ -2,7 +2,7 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebas
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
 import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
-const ADMIN_UID = "g4WjPt0LYacG8f5Z0C1pzHRVtf82";
+const ADMIN_UID = "g4WjPt0LYacG8f5Z0ClpzhRVtf82";
 const isAdmin = () => currentUserProfile && currentUserProfile.uid === ADMIN_UID;
 
 const firebaseConfig = {
