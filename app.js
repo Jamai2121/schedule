@@ -418,17 +418,33 @@ async function openPairModal(pair) {
         if (!text) return alert('Введите текст ДЗ');
         saveBtn.textContent = 'Сохранение...';
         saveBtn.disabled = true;
-        try {
-          await setDoc(hwRef, {
-            text: text,
-            authorFio: currentUserProfile.fio,
-            authorUid: currentUserProfile.uid,
-            pairId: pair.id,
-            weekNumber: weekNumber,
-            timestamp: Date.now()
-          }, { merge: true });
-          openPairModal(pair);
-        } catch (e) {
+try {
+  // Проверяем, существует ли документ
+  const existingSnap = await getDoc(hwRef);
+  
+  if (existingSnap.exists()) {
+    // Документ есть — обновляем через updateDoc
+    await updateDoc(hwRef, {
+      text: text,
+      authorFio: currentUserProfile.fio,
+      authorUid: currentUserProfile.uid,
+      pairId: pair.id,
+      weekNumber: weekNumber,
+      timestamp: Date.now()
+    });
+  } else {
+    // Документа нет — создаём через setDoc
+    await setDoc(hwRef, {
+      text: text,
+      authorFio: currentUserProfile.fio,
+      authorUid: currentUserProfile.uid,
+      pairId: pair.id,
+      weekNumber: weekNumber,
+      timestamp: Date.now()
+    });
+  }
+  openPairModal(pair);
+} catch (e) {
           console.error(e);
           alert('Ошибка: ' + (e.code === 'permission-denied' ? 'Нет прав (возможно, вы замьючены или ДЗ уже занято)' : e.message));
           saveBtn.textContent = 'Попробовать снова';
