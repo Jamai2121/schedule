@@ -381,7 +381,7 @@ async function openPairModal(pair) {
 
     let html = '';
     if (hwData) {
-      html += `<p style="white-space:pre-wrap;margin-bottom:8px;">${hwData.text}</p>`;
+      html += `<div style="background:var(--hover);border-left:4px solid var(--border-today);border-radius:0 8px 8px 0;padding:12px 14px;margin-bottom:8px;white-space:pre-wrap;font-size:14px;line-height:1.5;">${hwData.text}</div>`;
       html += `<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Добавил: ${hwData.authorFio || 'неизвестно'} ${hwData.timestamp ? '(' + new Date(hwData.timestamp).toLocaleDateString('ru-RU') + ')' : ''}</div>`;
       if (isAdmin() && hwData.authorUid) {
         html += `<button id="mute-btn" style="font-size:12px;padding:4px 8px;background:#fee2e2;color:#991b1b;border:none;border-radius:6px;cursor:pointer;margin-bottom:12px;">🚫 Замутить ${hwData.authorFio}</button>`;
