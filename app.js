@@ -1,6 +1,10 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-import { getFirestore, doc, setDoc } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+
+// ВСТАВЬ СЮДА СВОЙ UID из Шага 1
+const ADMIN_UID = g4WjPt0LYacG8f5Z0ClpzhRVtf82; 
+const isAdmin = () => currentUserProfile && currentUserProfile.uid === ADMIN_UID;
 
 const firebaseConfig = {
   apiKey: "AIzaSyDBStXp_31wtJF_QoyJKKTlcXbhWVNJ3KI",
@@ -367,7 +371,7 @@ function renderPair(pair, homework, isToday) {
 }
 
 // ==== МОДАЛКА ПАРЫ ====
-function openPairModal(pair, homework) {
+async function openPairModal(pair) {
   document.getElementById('modal-title').textContent = pair.subject || 'Пара';
   const meta = [
     formatTime(pair.time),
@@ -375,8 +379,88 @@ function openPairModal(pair, homework) {
     pair.subgroup ? `Подгруппа ${pair.subgroup}` : null,
   ].filter(Boolean).join(' · ');
   document.getElementById('modal-meta').textContent = meta;
-  document.getElementById('modal-homework').textContent =
-    homework || 'Домашнее задание не указано';
+
+  const weekNumber = getWeekNumber(currentWeekOffset);
+  const hwDocId = `${weekNumber}_${pair.id}`;
+  const hwRef = doc(db, 'homework', hwDocId);
+  
+  const modalBody = document.getElementById('modal-homework');
+  modalBody.innerHTML = '<div style="color:var(--muted)">Загрузка ДЗ...</div>';
+
+  try {
+    const snap = await getDoc(hwRef);
+    const hwData = snap.exists() ? snap.data() : null;
+
+    let html = '';
+    if (hwData) {
+      html += `<p style="white-space:pre-wrap;margin-bottom:8px;">${hwData.text}</p>`;
+      html += `<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Добавил: ${hwData.authorFio} ${hwData.timestamp ? '(' + new Date(hwData.timestamp).toLocaleDateString('ru-RU') + ')' : ''}</div>`;
+      
+      // Кнопка мута для админа
+      if (isAdmin() && hwData.authorUid) {
+        const muteBtn = document.createElement('button');
+        muteBtn.textContent = '🚫 Замутить пользователя';
+        muteBtn.style.cssText = 'font-size:12px;padding:4px 8px;background:#fee2e2;color:#991b1b;border:none;border-radius:6px;cursor:pointer;margin-bottom:12px;';
+        muteBtn.onclick = async () => {
+          if (confirm(`Замутить ${hwData.authorFio}? Он не сможет добавлять ДЗ.`)) {
+            await updateDoc(doc(db, 'users', hwData.authorUid), { isMuted: true });
+            alert('Пользователь замьючен.');
+          }
+        };
+        modalBody.appendChild(muteBtn);
+      }
+    } else {
+      html += `<p style="color:var(--muted);margin-bottom:12px;">Домашнее задание не указано.</p>`;
+    }
+
+    // Поле ввода: показываем, если ДЗ нет ИЛИ если мы админ
+    const canEdit = !hwData || isAdmin();
+    if (canEdit) {
+      html += `
+        <textarea id="hw-input" placeholder="Введите домашнее задание..." style="width:100%;min-height:80px;padding:10px;border-radius:8px;border:1px solid var(--hover);background:var(--bg);color:var(--text);resize:vertical;margin-bottom:8px;">${hwData ? hwData.text : ''}</textarea>
+        <button id="hw-save" class="auth-btn" style="width:100%;">${hwData ? 'Обновить ДЗ (Админ)' : 'Сохранить ДЗ'}</button>
+      `;
+    } else {
+      html += `<div style="font-size:12px;color:var(--muted);font-style:italic;">Редактирование доступно только автору или админу.</div>`;
+    }
+
+    modalBody.innerHTML = html;
+
+    // Обработчик сохранения
+    const saveBtn = document.getElementById('hw-save');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        const text = document.getElementById('hw-input').value.trim();
+        if (!text) return alert('Введите текст ДЗ');
+        
+        saveBtn.textContent = 'Сохранение...';
+        saveBtn.disabled = true;
+
+        try {
+          await setDoc(hwRef, {
+            text: text,
+            authorFio: currentUserProfile.fio,
+            authorUid: currentUserProfile.uid,
+            pairId: pair.id,
+            weekNumber: weekNumber,
+            timestamp: Date.now()
+          }, { merge: true }); // merge: true позволяет админу обновлять существующее
+          
+          openPairModal(pair); // Перерисовать модалку
+        } catch (e) {
+          console.error(e);
+          alert('Ошибка сохранения: ' + (e.code === 'permission-denied' ? 'Нет прав (возможно, вы замьючены или ДЗ уже занято)' : e.message));
+          saveBtn.textContent = 'Попробовать снова';
+          saveBtn.disabled = false;
+        }
+      });
+    }
+
+  } catch (e) {
+    console.error(e);
+    modalBody.innerHTML = '<div style="color:#ef4444">Ошибка загрузки ДЗ</div>';
+  }
+
   document.getElementById('modal').classList.remove('hidden');
 }
 
