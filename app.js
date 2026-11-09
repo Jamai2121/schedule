@@ -33,7 +33,7 @@ const START_OF_SEMESTER = { month: 7, day: 31 };
 const PAIR_DURATION_MIN = 95;
 const ONLINE_COURSE_URL = 'http://open.kemsu.ru/';
 
-// ==== АВТОРИЗАЦИЯ ====
+// ==== АВТОРИЗАЦИЯ =====
 function translit(s) {
   const map = { 'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya' };
   return s.toLowerCase().split('').map(ch => (map[ch] !== undefined ? map[ch] : ch)).join('')
