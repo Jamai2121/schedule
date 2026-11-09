@@ -3,7 +3,7 @@ import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, si
 import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
 // ВСТАВЬ СЮДА СВОЙ UID из Шага 1
-const ADMIN_UID = g4WjPt0LYacG8f5Z0ClpzhRVtf82; 
+const ADMIN_UID = "g4WjPt0LYacG8f5Z0ClpzhRVtf82"; 
 const isAdmin = () => currentUserProfile && currentUserProfile.uid === ADMIN_UID;
 
 const firebaseConfig = {
