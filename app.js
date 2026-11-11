@@ -1,6 +1,6 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, updateProfile } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js';
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, query, where, getDocs, addDoc, orderBy, limit } from 'https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDBStXp_31wtJF_QoyJKKTlcXbhWVNJ3KI",
@@ -16,6 +16,17 @@ const db = getFirestore(fbApp);
 
 const ADMIN_UID = "g4WjPt0LYacG8f5Z0ClpzhRVtf82";
 const isAdmin = () => currentUserProfile && currentUserProfile.uid === ADMIN_UID;
+
+const LOG_NAMES = {
+  hw_add: '➕ ДЗ добавлено',
+  hw_update: '✏️ ДЗ изменено',
+  hw_delete: '🗑 ДЗ удалено',
+  pair_cancel: '⛔ Пара отменена',
+  pair_uncancel: '✅ Пара возвращена',
+  room_change: '🚪 Смена аудитории',
+  room_reset: '↩️ Возврат аудитории',
+  mute: '🚫 Мут пользователя'
+};
 
 // ==== НАСТРОЙКИ ====
 const DAY_NAMES = {
@@ -33,7 +44,7 @@ const START_OF_SEMESTER = { month: 7, day: 31 };
 const PAIR_DURATION_MIN = 95;
 const ONLINE_COURSE_URL = 'http://open.kemsu.ru/';
 
-// ==== АВТОРИЗАЦИЯ =====
+// ==== АВТОРИЗАЦИЯ ====
 function translit(s) {
   const map = { 'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya' };
   return s.toLowerCase().split('').map(ch => (map[ch] !== undefined ? map[ch] : ch)).join('')
@@ -160,8 +171,8 @@ function getParity(weekNumber) {
   return weekNumber % 2 === 1 ? 'odd' : 'even';
 }
 
-// ==== OVERRIDES ====
-function applyOverrides(weekNumber, pairs) {
+// ==== OVERRIDES (JSON + Firestore) ====
+function applyOverrides(weekNumber, pairs, ovMap) {
   const list = DATA.overrides[String(weekNumber)] || [];
   const cancelIds = new Set();
   const notes = {};
@@ -169,11 +180,15 @@ function applyOverrides(weekNumber, pairs) {
     if (o.action === 'cancel') cancelIds.add(o.id);
     if (o.action === 'note') notes[o.id] = o.note;
   });
-  return pairs.map(p => ({
-    ...p,
-    note: notes[p.id] || null,
-    cancelled: cancelIds.has(p.id),
-  }));
+  return pairs.map(p => {
+    const fv = ovMap[p.id] || {};
+    return {
+      ...p,
+      note: fv.note || notes[p.id] || null,
+      cancelled: fv.cancelled !== undefined ? fv.cancelled : cancelIds.has(p.id),
+      roomOverride: fv.room || null,
+    };
+  });
 }
 
 // ==== ВРЕМЯ ====
@@ -216,6 +231,23 @@ function countUniqueSlots(pairs) {
   return slots.size;
 }
 
+// ==== ЛОГИ ====
+async function addLog(action, details, pair) {
+  try {
+    await addDoc(collection(db, 'logs'), {
+      action,
+      details: details || '',
+      pairId: pair ? pair.id : null,
+      weekNumber: getWeekNumber(currentWeekOffset),
+      userFio: currentUserProfile ? currentUserProfile.fio : '',
+      userUid: currentUserProfile ? currentUserProfile.uid : '',
+      timestamp: Date.now()
+    });
+  } catch (e) {
+    console.error('Ошибка лога:', e);
+  }
+}
+
 // ==== РЕНДЕР ====
 function renderHeader(weekNumber) {
   const parity = getParity(weekNumber);
@@ -231,22 +263,23 @@ async function renderSchedule(weekNumber) {
   const todayKey = JS_DAY_TO_KEY[new Date().getDay()];
   const isCurrentWeek = currentWeekOffset === 0;
 
-  // Загружаем ДЗ из Firestore для текущей недели
+  // ДЗ и overrides из Firestore
   const hw = {};
+  const ov = {};
   try {
     const hwQuery = query(collection(db, 'homework'), where('weekNumber', '==', weekNumber));
-    const snapshot = await getDocs(hwQuery);
-    snapshot.forEach(docSnap => {
-      const data = docSnap.data();
-      if (data.pairId) hw[data.pairId] = data.text;
-    });
+    const hwSnap = await getDocs(hwQuery);
+    hwSnap.forEach(d => { const data = d.data(); if (data.pairId) hw[data.pairId] = data.text; });
+    const ovQuery = query(collection(db, 'overrides'), where('weekNumber', '==', weekNumber));
+    const ovSnap = await getDocs(ovQuery);
+    ovSnap.forEach(d => { const data = d.data(); if (data.pairId) ov[data.pairId] = data; });
   } catch (e) {
-    console.error('Ошибка загрузки ДЗ:', e);
+    console.error('Ошибка загрузки ДЗ/overrides:', e);
   }
 
   DAY_ORDER.forEach(dayKey => {
     const basePairs = (DATA.schedule[parity] && DATA.schedule[parity][dayKey]) || [];
-    let pairs = applyOverrides(weekNumber, basePairs);
+    let pairs = applyOverrides(weekNumber, basePairs, ov);
     if (subgroupFilter !== 'all') {
       const sg = Number(subgroupFilter);
       pairs = pairs.filter(p => !p.subgroup || p.subgroup === sg);
@@ -347,10 +380,11 @@ function renderPair(pair, homework, isToday) {
     t.textContent = pair.teacher;
     info.appendChild(t);
   }
-  if (pair.room) {
+  const room = pair.roomOverride || pair.room;
+  if (room) {
     const r = document.createElement('div');
     r.className = 'pair-room';
-    r.textContent = 'ауд. ' + pair.room;
+    r.textContent = 'ауд. ' + room;
     info.appendChild(r);
   }
   el.appendChild(info);
@@ -358,12 +392,13 @@ function renderPair(pair, homework, isToday) {
   return el;
 }
 
-// ==== МОДАЛКА ПАРЫ ====
+// ==== МОДАЛКА ПАРЫ + ПАНЕЛЬ АДМИНА ====
 async function openPairModal(pair) {
   document.getElementById('modal-title').textContent = pair.subject || 'Пара';
+  const room = pair.roomOverride || pair.room;
   const meta = [
     formatTime(pair.time),
-    pair.room ? `ауд. ${pair.room}` : null,
+    room ? `ауд. ${room}` : null,
     pair.subgroup ? `Подгруппа ${pair.subgroup}` : null,
   ].filter(Boolean).join(' · ');
   document.getElementById('modal-meta').textContent = meta;
@@ -371,17 +406,23 @@ async function openPairModal(pair) {
   const weekNumber = getWeekNumber(currentWeekOffset);
   const hwDocId = `${weekNumber}_${pair.id}`;
   const hwRef = doc(db, 'homework', hwDocId);
+  const ovRef = doc(db, 'overrides', `${weekNumber}_${pair.id}`);
 
   const modalBody = document.getElementById('modal-homework');
   modalBody.innerHTML = '<div style="color:var(--muted)">Загрузка ДЗ...</div>';
 
+  const oldPanel = document.getElementById('admin-panel');
+  if (oldPanel) oldPanel.remove();
+
   try {
     const snap = await getDoc(hwRef);
     const hwData = snap.exists() ? snap.data() : null;
+    const ovSnap = await getDoc(ovRef);
+    const ovData = ovSnap.exists() ? ovSnap.data() : null;
 
     let html = '';
     if (hwData) {
-     html += `<div style="background:var(--hover);border-left:4px solid var(--border-today);border-radius:0 8px 8px 0;padding:12px 14px;margin-bottom:8px;white-space:pre-wrap;font-size:14px;line-height:1.5;color:var(--text);">${hwData.text}</div>`;
+      html += `<div style="background:var(--hover);border-left:4px solid var(--border-today);border-radius:0 8px 8px 0;padding:12px 14px;margin-bottom:8px;white-space:pre-wrap;font-size:14px;line-height:1.5;color:var(--text);">${hwData.text}</div>`;
       html += `<div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Добавил: ${hwData.authorFio || 'неизвестно'} ${hwData.timestamp ? '(' + new Date(hwData.timestamp).toLocaleDateString('ru-RU') + ')' : ''}</div>`;
       if (isAdmin() && hwData.authorUid) {
         html += `<button id="mute-btn" style="font-size:12px;padding:4px 8px;background:#fee2e2;color:#991b1b;border:none;border-radius:6px;cursor:pointer;margin-bottom:12px;">🚫 Замутить ${hwData.authorFio}</button>`;
@@ -407,6 +448,7 @@ async function openPairModal(pair) {
       muteBtn.addEventListener('click', async () => {
         if (confirm(`Замутить ${hwData.authorFio}? Он не сможет добавлять ДЗ.`)) {
           await updateDoc(doc(db, 'users', hwData.authorUid), { isMuted: true });
+          await addLog('mute', hwData.authorFio, pair);
           alert('Пользователь замьючен.');
         }
       });
@@ -431,15 +473,118 @@ async function openPairModal(pair) {
           };
           if (existingSnap.exists()) {
             await updateDoc(hwRef, hwPayload);
+            await addLog('hw_update', pair.subject, pair);
           } else {
             await setDoc(hwRef, hwPayload);
+            await addLog('hw_add', pair.subject, pair);
           }
           openPairModal(pair);
+          refresh();
         } catch (e) {
           console.error(e);
           alert('Ошибка: ' + (e.code === 'permission-denied' ? 'Нет прав' : e.message));
           saveBtn.textContent = 'Попробовать снова';
           saveBtn.disabled = false;
+        }
+      });
+    }
+
+    // ==== ПАНЕЛЬ АДМИНА ====
+    if (isAdmin()) {
+      const panel = document.createElement('div');
+      panel.id = 'admin-panel';
+      panel.className = 'admin-panel';
+      panel.innerHTML = `
+        <h3>🛠 Панель админа</h3>
+        <button id="adm-cancel" class="admin-btn"></button>
+        <input id="adm-room" class="admin-input" placeholder="Новая аудитория (напр. 8105)">
+        <button id="adm-room-save" class="admin-btn">🚪 Поменять аудиторию</button>
+        <button id="adm-room-reset" class="admin-btn">↩️ Вернуть аудиторию</button>
+        <button id="adm-hw-del" class="admin-btn danger" style="${hwData ? '' : 'display:none'}">🗑 Удалить ДЗ</button>
+        <button id="adm-logs" class="admin-btn">📜 Логи изменений</button>
+        <div id="adm-logs-box" class="admin-logs" style="display:none"></div>
+      `;
+      document.getElementById('modal').appendChild(panel);
+
+      const cancelBtn = panel.querySelector('#adm-cancel');
+      cancelBtn.textContent = (ovData && ovData.cancelled) ? '✅ Вернуть пару' : '⛔ Отменить пару';
+      cancelBtn.addEventListener('click', async () => {
+        const newVal = !(ovData && ovData.cancelled);
+        await setDoc(ovRef, {
+          weekNumber, pairId: pair.id,
+          cancelled: newVal,
+          note: (ovData && ovData.note) || null,
+          room: (ovData && ovData.room) || null,
+          updatedBy: currentUserProfile.uid,
+          updatedByFio: currentUserProfile.fio,
+          updatedAt: Date.now()
+        }, { merge: true });
+        await addLog(newVal ? 'pair_cancel' : 'pair_uncancel', pair.subject, pair);
+        openPairModal(pair);
+        refresh();
+      });
+
+      panel.querySelector('#adm-room-save').addEventListener('click', async () => {
+        const newRoom = panel.querySelector('#adm-room').value.trim();
+        if (!newRoom) return alert('Введи аудиторию');
+        await setDoc(ovRef, {
+          weekNumber, pairId: pair.id,
+          cancelled: (ovData && ovData.cancelled) || false,
+          room: newRoom,
+          note: `Занятие перенесено в ауд. ${newRoom}`,
+          updatedBy: currentUserProfile.uid,
+          updatedByFio: currentUserProfile.fio,
+          updatedAt: Date.now()
+        }, { merge: true });
+        await addLog('room_change', `${pair.subject} → ауд. ${newRoom}`, pair);
+        openPairModal(pair);
+        refresh();
+      });
+
+      panel.querySelector('#adm-room-reset').addEventListener('click', async () => {
+        await setDoc(ovRef, {
+          weekNumber, pairId: pair.id,
+          cancelled: (ovData && ovData.cancelled) || false,
+          room: null,
+          note: null,
+          updatedBy: currentUserProfile.uid,
+          updatedByFio: currentUserProfile.fio,
+          updatedAt: Date.now()
+        }, { merge: true });
+        await addLog('room_reset', pair.subject, pair);
+        openPairModal(pair);
+        refresh();
+      });
+
+      const hwDelBtn = panel.querySelector('#adm-hw-del');
+      hwDelBtn.addEventListener('click', async () => {
+        if (!confirm('Удалить ДЗ по этой паре?')) return;
+        await deleteDoc(hwRef);
+        await addLog('hw_delete', pair.subject, pair);
+        openPairModal(pair);
+        refresh();
+      });
+
+      panel.querySelector('#adm-logs').addEventListener('click', async () => {
+        const box = panel.querySelector('#adm-logs-box');
+        if (box.style.display !== 'none') { box.style.display = 'none'; return; }
+        box.style.display = 'block';
+        box.innerHTML = '<div class="admin-log-item">Загрузка...</div>';
+        try {
+          const q = query(collection(db, 'logs'), orderBy('timestamp', 'desc'), limit(50));
+          const lSnap = await getDocs(q);
+          box.innerHTML = '';
+          if (lSnap.empty) { box.innerHTML = '<div class="admin-log-item">Логи пусты</div>'; return; }
+          lSnap.forEach(d => {
+            const l = d.data();
+            const div = document.createElement('div');
+            div.className = 'admin-log-item';
+            div.innerHTML = `<div class="log-time">${new Date(l.timestamp).toLocaleString('ru-RU')} · ${l.userFio || '—'}</div><div>${LOG_NAMES[l.action] || l.action}: ${l.details || ''} (нед. ${l.weekNumber})</div>`;
+            box.appendChild(div);
+          });
+        } catch (e) {
+          box.innerHTML = '<div class="admin-log-item">Ошибка загрузки логов</div>';
+          console.error(e);
         }
       });
     }
