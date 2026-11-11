@@ -457,3 +457,53 @@ cursor: pointer;
 .auth-btn.secondary { background: var(--hover); color: var(--text); }
 .auth-btn:active { transform: scale(0.97); }
 .auth-error { margin-top: 10px; font-size: 13px; color: #ef4444; min-height: 18px; text-align: center; }
+/* ==== ПАНЕЛЬ АДМИНА ==== */
+.modal { gap: 16px; }
+.admin-panel {
+  background: var(--card);
+  color: var(--text);
+  border-radius: 14px;
+  padding: 16px;
+  width: 280px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+  flex-shrink: 0;
+}
+.admin-panel h3 { font-size: 15px; margin-bottom: 10px; }
+.admin-btn {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: var(--hover);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+.admin-btn:hover { background: var(--chip-bg); }
+.admin-btn.danger { background: #fee2e2; color: #991b1b; }
+body.dark .admin-btn.danger { background: #4a1c1c; color: #fca5a5; }
+.admin-input {
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--hover);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+}
+.admin-logs { max-height: 300px; overflow-y: auto; font-size: 12px; margin-top: 4px; }
+.admin-log-item { padding: 6px 8px; border-bottom: 1px solid var(--hover); line-height: 1.4; }
+.admin-log-item .log-time { color: var(--muted); font-size: 11px; }
+@media (max-width: 768px) {
+  .modal { flex-direction: column; overflow-y: auto; align-items: center; }
+  .modal-content { max-height: none; }
+  .admin-panel { width: 100%; max-width: 500px; max-height: none; }
+}
