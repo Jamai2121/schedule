@@ -502,8 +502,77 @@ body.dark .admin-btn.danger { background: #4a1c1c; color: #fca5a5; }
 .admin-logs { max-height: 300px; overflow-y: auto; font-size: 12px; margin-top: 4px; }
 .admin-log-item { padding: 6px 8px; border-bottom: 1px solid var(--hover); line-height: 1.4; }
 .admin-log-item .log-time { color: var(--muted); font-size: 11px; }
+
 @media (max-width: 768px) {
   .modal { flex-direction: column; overflow-y: auto; align-items: center; }
   .modal-content { max-height: none; }
   .admin-panel { width: 100%; max-width: 500px; max-height: none; }
 }
+/* ==== КОНТРОЛЬНАЯ РАБОТА (золото) ==== */
+.pair.exam {
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.10) 0 2px, transparent 2px 7px),
+    repeating-linear-gradient(-45deg, rgba(120,72,0,0.10) 0 1px, transparent 1px 5px),
+    radial-gradient(120% 90% at 20% 0%, rgba(255,255,255,0.55) 0%, transparent 45%),
+    linear-gradient(135deg, #f9e7b0 0%, #f3cf6b 22%, #e8b83a 45%, #f6d879 62%, #d99e2b 82%, #f2c94c 100%);
+  border: 2px solid #b8860b;
+  border-radius: 14px 10px 16px 8px / 10px 16px 8px 14px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.55),
+    inset 0 -3px 7px rgba(120,72,0,0.35),
+    0 3px 12px rgba(180,120,0,0.35);
+}
+.pair.exam::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1.5px dashed rgba(120,72,0,0.55);
+  border-radius: 12px 8px 14px 6px / 8px 14px 6px 12px;
+  pointer-events: none;
+}
+.pair.exam .pair-subject,
+.pair.exam .pair-time,
+.pair.exam .pair-teacher,
+.pair.exam .pair-room { color: #4a3200; }
+.pair.exam .pair-teacher,
+.pair.exam .pair-room { opacity: 0.85; }
+body.dark .pair.exam {
+  background:
+    repeating-linear-gradient(45deg, rgba(255,215,100,0.07) 0 2px, transparent 2px 7px),
+    repeating-linear-gradient(-45deg, rgba(0,0,0,0.28) 0 1px, transparent 1px 5px),
+    radial-gradient(120% 90% at 20% 0%, rgba(255,230,150,0.25) 0%, transparent 45%),
+    linear-gradient(135deg, #6b5210 0%, #8a6a14 25%, #a37d1a 50%, #7a5c10 75%, #93701a 100%);
+  border-color: #d4af37;
+}
+body.dark .pair.exam::before { border-color: rgba(255,215,130,0.40); }
+body.dark .pair.exam .pair-subject,
+body.dark .pair.exam .pair-time,
+body.dark .pair.exam .pair-teacher,
+body.dark .pair.exam .pair-room { color: #ffe9a8; }
+/* Бейдж контрольной */
+.pair-exam-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #3d2a00;
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,0.25) 0 1px, transparent 1px 4px),
+    linear-gradient(135deg, #ffe9a8, #f5c542 45%, #d99e2b 70%, #ffe08a);
+  border: 1.5px solid #8a6a14;
+  border-radius: 10px 4px 12px 5px / 5px 12px 4px 10px;
+  transform: rotate(-1.2deg);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 2px 4px rgba(120,72,0,0.35);
+  vertical-align: middle;
+}
+body.dark .pair-exam-badge { border-color: #ffd76a; }
+/* Кнопка в панели админа */
+.admin-btn.exam {
+  background: linear-gradient(135deg, #ffe9a8, #f5c542 45%, #d99e2b 75%, #f2c94c);
+  color: #3d2a00;
+  border: 1.5px solid #8a6a14;
+}
+body.dark .admin-btn.exam { border-color: #ffd76a; }
