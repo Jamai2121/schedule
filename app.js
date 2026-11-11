@@ -25,7 +25,9 @@ const LOG_NAMES = {
   pair_uncancel: '✅ Пара возвращена',
   room_change: '🚪 Смена аудитории',
   room_reset: '↩️ Возврат аудитории',
-  mute: '🚫 Мут пользователя'
+  mute: '🚫 Мут пользователя',
+  exam_set: '🏆 Помечено как контрольная',
+  exam_unset: '🏆 Контрольная снята'
 };
 
 // ==== НАСТРОЙКИ ====
@@ -187,6 +189,7 @@ function applyOverrides(weekNumber, pairs, ovMap) {
       note: fv.note || notes[p.id] || null,
       cancelled: fv.cancelled !== undefined ? fv.cancelled : cancelIds.has(p.id),
       roomOverride: fv.room || null,
+      exam: fv.exam || false,
     };
   });
 }
@@ -324,6 +327,7 @@ function renderPair(pair, homework, isToday) {
   const el = document.createElement('div');
   el.className = 'pair';
   if (pair.cancelled) el.classList.add('cancelled');
+  if (pair.exam) el.classList.add('exam');
   if (isToday) {
     const { status, progress } = getPairStatus(pair);
     if (status === 'past') el.classList.add('past');
@@ -362,6 +366,12 @@ function renderPair(pair, homework, isToday) {
     hwBadge.className = 'pair-hw';
     hwBadge.textContent = 'ДЗ';
     subject.appendChild(hwBadge);
+  }
+  if (pair.exam) {
+    const exBadge = document.createElement('span');
+    exBadge.className = 'pair-exam-badge';
+    exBadge.textContent = '✦ Контрольная работа';
+    subject.appendChild(exBadge);
   }
   if (pair.online) {
     const onlineBtn = document.createElement('a');
@@ -500,6 +510,7 @@ async function openPairModal(pair) {
         <input id="adm-room" class="admin-input" placeholder="Новая аудитория (напр. 8105)">
         <button id="adm-room-save" class="admin-btn">🚪 Поменять аудиторию</button>
         <button id="adm-room-reset" class="admin-btn">↩️ Вернуть аудиторию</button>
+        <button id="adm-exam" class="admin-btn exam"></button>
         <button id="adm-hw-del" class="admin-btn danger" style="${hwData ? '' : 'display:none'}">🗑 Удалить ДЗ</button>
         <button id="adm-logs" class="admin-btn">📜 Логи изменений</button>
         <div id="adm-logs-box" class="admin-logs" style="display:none"></div>
@@ -552,6 +563,25 @@ async function openPairModal(pair) {
           updatedAt: Date.now()
         }, { merge: true });
         await addLog('room_reset', pair.subject, pair);
+        openPairModal(pair);
+        refresh();
+      });
+
+      const examBtn = panel.querySelector('#adm-exam');
+      examBtn.textContent = (ovData && ovData.exam) ? '🏆 Убрать контрольную' : '🏆 Контрольная работа';
+      examBtn.addEventListener('click', async () => {
+        const newVal = !(ovData && ovData.exam);
+        await setDoc(ovRef, {
+          weekNumber, pairId: pair.id,
+          cancelled: (ovData && ovData.cancelled) || false,
+          room: (ovData && ovData.room) || null,
+          note: (ovData && ovData.note) || null,
+          exam: newVal,
+          updatedBy: currentUserProfile.uid,
+          updatedByFio: currentUserProfile.fio,
+          updatedAt: Date.now()
+        }, { merge: true });
+        await addLog(newVal ? 'exam_set' : 'exam_unset', pair.subject, pair);
         openPairModal(pair);
         refresh();
       });
