@@ -963,6 +963,93 @@ async function checkNotifications() {
   }
 }
 
+// ==== СТИЛИ ====
+const STYLE_FILES = [
+  './styles/classic.js',
+  './styles/blueprint.js',
+  './styles/notebook.js',
+  './styles/neon.js',
+  './styles/samurai.js',
+  './styles/pixels.js'
+];
+let STYLES = [];
+let appliedStyleKeys = [];
+
+async function loadStyles() {
+  STYLES = await Promise.all(STYLE_FILES.map(p => import(p).then(m => m.default)));
+}
+
+function applyStyle(id) {
+  const st = STYLES.find(s => s.id === id) || STYLES[0];
+  if (!st) return;
+  const mode = document.body.classList.contains('dark') ? 'dark' : 'light';
+  appliedStyleKeys.forEach(k => document.body.style.removeProperty(k));
+  appliedStyleKeys = [];
+  const vars = st[mode] || st.light || {};
+  for (const [k, v] of Object.entries(vars)) {
+    document.body.style.setProperty(k, v);
+    appliedStyleKeys.push(k);
+  }
+  let tag = document.getElementById('style-extra');
+  if (!tag) { tag = document.createElement('style'); tag.id = 'style-extra'; document.head.appendChild(tag); }
+  tag.textContent = st.extraCss || '';
+  document.body.dataset.style = st.id;
+  localStorage.setItem('style', st.id);
+  document.querySelectorAll('.style-row').forEach(r => {
+    r.classList.toggle('active', r.dataset.style === st.id);
+  });
+}
+
+function createStyleButton() {
+  const themeBtn = document.getElementById('theme-toggle');
+  if (!themeBtn || document.getElementById('style-btn')) return;
+  const col = document.createElement('div');
+  col.className = 'header-left-col';
+  themeBtn.parentNode.insertBefore(col, themeBtn);
+  col.appendChild(themeBtn);
+  const btn = document.createElement('button');
+  btn.className = 'icon-btn';
+  btn.id = 'style-btn';
+  btn.title = 'Стили оформления';
+  btn.textContent = '🎨';
+  btn.addEventListener('click', openStylePicker);
+  col.appendChild(btn);
+}
+
+async function openStylePicker() {
+  const old = document.getElementById('style-modal');
+  if (old) old.remove();
+  if (STYLES.length === 0) await loadStyles();
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'style-modal';
+  const rows = STYLES.map(s => `
+    <button class="style-row" data-style="${s.id}">
+      <span class="style-swatches">${s.preview.map(c => `<i style="background:${c}"></i>`).join('')}</span>
+      <span class="style-name">${s.name}</span>
+      <span class="style-check">✓</span>
+    </button>`).join('');
+  modal.innerHTML = `
+    <div class="modal-content">
+      <button class="modal-close" data-style-close>×</button>
+      <h2>🎨 Стили оформления</h2>
+      <div class="style-list">${rows}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:10px;">Стиль применяется сразу и сохраняется на этом устройстве.</div>
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('[data-style-close]').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+  modal.querySelectorAll('.style-row').forEach(row => {
+    row.addEventListener('click', () => applyStyle(row.dataset.style));
+  });
+  applyStyle(localStorage.getItem('style') || 'classic');
+}
+
+createStyleButton();
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  applyStyle(localStorage.getItem('style') || 'classic');
+});
+
 // ==== ОБНОВЛЕНИЕ ====
 async function refresh() {
   const weekNumber = getWeekNumber(currentWeekOffset);
@@ -978,6 +1065,8 @@ async function refresh() {
   try {
     status.textContent = 'Загружаем расписание…';
     await loadAll();
+    await loadStyles();
+applyStyle(localStorage.getItem('style') || 'classic');
     initSubgroupFilter();
     await refresh();
     status.textContent = `Обновлено: ${new Date().toLocaleTimeString('ru-RU')}`;
