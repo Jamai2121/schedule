@@ -121,10 +121,12 @@ onAuthStateChanged(auth, user => {
         actions.appendChild(chip);
       }
     }
+    checkNotifications();
   } else {
     currentUserProfile = null;
     const chip = document.getElementById('user-chip');
     if (chip) chip.remove();
+    if (bellBtn) { bellBtn.remove(); bellBtn = null; }
     if (!authOverlay) authOverlay = buildAuthScreen();
   }
 });
@@ -784,6 +786,116 @@ function initSubgroupFilter() {
     btn.textContent = isDark ? '☀️' : '🌙';
   }
 })();
+
+// ==== УВЕДОМЛЕНИЯ ====
+const NOTIFY_ACTIONS = ['hw_add','hw_update','hw_delete','pair_cancel','pair_uncancel','room_change','room_reset','exam_set','exam_unset'];
+let bellBtn = null;
+
+const bellKey = suffix => currentUserProfile ? `bell_${suffix}_${currentUserProfile.uid}` : null;
+
+async function fetchRecentLogs() {
+  const q = query(collection(db, 'logs'), orderBy('timestamp', 'desc'), limit(20));
+  const snap = await getDocs(q);
+  const items = [];
+  snap.forEach(d => items.push(d.data()));
+  return items.filter(l => NOTIFY_ACTIONS.includes(l.action) && l.userUid !== currentUserProfile.uid);
+}
+
+function updateBellBadge(count) {
+  if (!bellBtn) return;
+  let badge = bellBtn.querySelector('.bell-badge');
+  if (count > 0) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'bell-badge';
+      bellBtn.appendChild(badge);
+    }
+    badge.textContent = count > 9 ? '9+' : count;
+  } else if (badge) badge.remove();
+}
+
+function createBellButton() {
+  if (bellBtn) return;
+  const actions = document.querySelector('.header-actions');
+  if (!actions) return;
+  bellBtn = document.createElement('button');
+  bellBtn.className = 'icon-btn';
+  bellBtn.id = 'bell-btn';
+  bellBtn.title = 'Уведомления';
+  bellBtn.textContent = '🔔';
+  bellBtn.addEventListener('click', openBellModal);
+  actions.insertBefore(bellBtn, actions.firstChild);
+}
+
+async function openBellModal() {
+  const old = document.getElementById('bell-modal');
+  if (old) old.remove();
+  const items = await fetchRecentLogs();
+  localStorage.setItem(bellKey('read'), String(Date.now()));
+  updateBellBadge(0);
+
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'bell-modal';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <button class="modal-close" data-bell-close>×</button>
+      <h2>🔔 Последние обновления</h2>
+      <div class="bell-list"></div>
+    </div>`;
+  const list = modal.querySelector('.bell-list');
+  if (items.length === 0) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:14px;">Новых обновлений нет</div>';
+  } else {
+    items.forEach(l => {
+      const row = document.createElement('div');
+      row.className = 'info-item';
+      row.innerHTML = `<div class="info-date">${new Date(l.timestamp).toLocaleString('ru-RU')} · ${l.userFio || '—'}</div><div class="info-text">${LOG_NAMES[l.action] || l.action}${l.details ? ': ' + l.details : ''} (нед. ${l.weekNumber})</div>`;
+      list.appendChild(row);
+    });
+  }
+  document.body.appendChild(modal);
+  modal.querySelector('[data-bell-close]').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
+
+function showNotifyToast(items) {
+  const toast = document.createElement('div');
+  toast.className = 'notify-toast';
+  const preview = items.slice(0, 3).map(l => `<div>• ${LOG_NAMES[l.action] || l.action}${l.details ? ': ' + l.details : ''}</div>`).join('');
+  const more = items.length > 3 ? `<div style="opacity:.7">…и ещё ${items.length - 3}</div>` : '';
+  toast.innerHTML = `
+    <div class="notify-toast-head"><span>🔔 Новое с твоего последнего визита (${items.length})</span><button class="notify-toast-close">×</button></div>
+    <div class="notify-toast-body">${preview}${more}</div>
+    <button class="notify-toast-all">Показать все</button>`;
+  document.body.appendChild(toast);
+  const remove = () => toast.remove();
+  toast.querySelector('.notify-toast-close').addEventListener('click', remove);
+  toast.querySelector('.notify-toast-all').addEventListener('click', () => { remove(); openBellModal(); });
+  setTimeout(remove, 12000);
+}
+
+async function checkNotifications() {
+  if (!currentUserProfile) return;
+  createBellButton();
+  try {
+    const items = await fetchRecentLogs();
+
+    const readRaw = localStorage.getItem(bellKey('read'));
+    const lastRead = readRaw ? Number(readRaw) : Date.now();
+    if (!readRaw) localStorage.setItem(bellKey('read'), String(Date.now()));
+    updateBellBadge(items.filter(l => l.timestamp > lastRead).length);
+
+    const visitRaw = localStorage.getItem(bellKey('visit'));
+    if (visitRaw) {
+      const sinceVisit = items.filter(l => l.timestamp > Number(visitRaw));
+      if (sinceVisit.length > 0) showNotifyToast(sinceVisit);
+    }
+    localStorage.setItem(bellKey('visit'), String(Date.now()));
+  } catch (e) {
+    console.error('Ошибка уведомлений:', e);
+  }
+}
 
 // ==== ОБНОВЛЕНИЕ ====
 async function refresh() {
