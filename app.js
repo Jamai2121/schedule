@@ -724,6 +724,57 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// ==== МЕНЮ (DRAWER) ====
+function createMenu() {
+  const actions = document.querySelector('.header-actions');
+  if (!actions || document.getElementById('burger-btn')) return;
+
+  const burger = document.createElement('button');
+  burger.className = 'icon-btn';
+  burger.id = 'burger-btn';
+  burger.title = 'Меню';
+  burger.textContent = '☰';
+  actions.appendChild(burger);
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'drawer-backdrop';
+  document.body.appendChild(backdrop);
+
+  const drawer = document.createElement('div');
+  drawer.id = 'drawer';
+  drawer.className = 'drawer';
+  drawer.innerHTML = `
+    <div class="drawer-head"><span>Меню</span><button id="drawer-close">×</button></div>
+    <button class="drawer-item" data-menu="links">🔗 Полезные ссылки</button>
+    <button class="drawer-item" data-menu="variants">🎓 Варианты и фамилии</button>
+    <button class="drawer-item" data-menu="info">❗ Важная информация</button>
+    <button class="drawer-item" data-menu="books">📚 Учебники</button>
+    <button class="drawer-item drawer-games" data-menu="games">🎮 Игры</button>
+  `;
+  document.body.appendChild(drawer);
+
+  const open = () => { drawer.classList.add('open'); backdrop.classList.add('open'); };
+  const close = () => { drawer.classList.remove('open'); backdrop.classList.remove('open'); };
+
+  burger.addEventListener('click', open);
+  backdrop.addEventListener('click', close);
+  drawer.querySelector('#drawer-close').addEventListener('click', close);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+
+  drawer.querySelectorAll('.drawer-item').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const kind = btn.dataset.menu;
+      close();
+      if (kind === 'links') document.getElementById('links-modal').classList.remove('hidden');
+      if (kind === 'variants') { renderVariants(); document.getElementById('variants-modal').classList.remove('hidden'); }
+      if (kind === 'info') { renderInfo(); document.getElementById('info-modal').classList.remove('hidden'); }
+      if (kind === 'books') { renderBooks(); document.getElementById('books-modal').classList.remove('hidden'); }
+      if (kind === 'games') window.location.href = './games/';
+    });
+  });
+}
+createMenu();
+
 // ==== КНОПКИ ====
 document.getElementById('books-btn').addEventListener('click', () => {
   renderBooks();
