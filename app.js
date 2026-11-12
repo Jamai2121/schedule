@@ -109,17 +109,20 @@ onAuthStateChanged(auth, user => {
   if (user) {
     currentUserProfile = { uid: user.uid, fio: user.displayName || '' };
     if (authOverlay) { authOverlay.remove(); authOverlay = null; }
-    if (!document.getElementById('user-chip')) {
-      const actions = document.querySelector('.header-actions');
-      if (actions) {
-        const chip = document.createElement('button');
-        chip.id = 'user-chip';
-        chip.className = 'icon-btn';
-        chip.title = 'Выйти';
-        chip.textContent = '👤';
-        chip.addEventListener('click', () => signOut(auth));
-        actions.appendChild(chip);
-      }
+    let chip = document.getElementById('user-chip');
+    const actions = document.querySelector('.header-actions');
+    if (!chip && actions) {
+      chip = document.createElement('button');
+      chip.id = 'user-chip';
+      chip.className = 'icon-btn';
+      actions.appendChild(chip);
+    }
+    if (chip) {
+      chip.classList.remove('chip-loading');
+      chip.disabled = false;
+      chip.title = 'Выйти';
+      chip.textContent = '👤';
+      chip.onclick = () => signOut(auth);
     }
     checkNotifications();
   } else {
@@ -865,6 +868,18 @@ function updateBellBadge(count) {
   } else if (badge) badge.remove();
 }
 
+function ensureUserChipPlaceholder() {
+  if (document.getElementById('user-chip')) return;
+  const actions = document.querySelector('.header-actions');
+  if (!actions) return;
+  const chip = document.createElement('button');
+  chip.id = 'user-chip';
+  chip.className = 'icon-btn chip-loading';
+  chip.textContent = '👤';
+  chip.disabled = true;
+  actions.appendChild(chip);
+}
+
 function createBellButton() {
   if (bellBtn) return;
   const actions = document.querySelector('.header-actions');
@@ -958,6 +973,8 @@ async function refresh() {
 // ==== СТАРТ ====
 (async function init() {
   const status = document.getElementById('status');
+  createBellButton();
+  ensureUserChipPlaceholder();
   try {
     status.textContent = 'Загружаем расписание…';
     await loadAll();
