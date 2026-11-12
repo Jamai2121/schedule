@@ -699,3 +699,32 @@ body.dark .admin-btn.exam { border-color: #ffd76a; }
 #burger-btn { order: 10; }
 .chip-loading { opacity: 0.35; cursor: default; }
 .chip-loading:hover { transform: none; }
+/* ==== СТИЛИ ОФОРМЛЕНИЯ ==== */
+.header-left-col { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.style-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.style-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--hover);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+.style-row.active { border-color: var(--border-today); box-shadow: 0 0 0 1px var(--border-today); }
+.style-swatches { display: flex; gap: 4px; }
+.style-swatches i {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(128,128,128,0.4);
+  display: inline-block;
+}
+.style-name { flex: 1; text-align: left; }
+.style-check { opacity: 0; color: var(--border-today); font-weight: 800; }
+.style-row.active .style-check { opacity: 1; }
