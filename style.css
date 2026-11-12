@@ -628,3 +628,71 @@ body.dark .admin-btn.exam { border-color: #ffd76a; }
   cursor: pointer;
 }
 .notify-toast-all:hover { background: var(--chip-bg); }
+/* ==== МЕНЮ (DRAWER) ==== */
+#books-btn, #info-btn, #variants-btn, #links-btn, #games-btn,
+.header-actions a[href*="games"] { display: none; }
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: min(320px, 85vw);
+  background: var(--card);
+  color: var(--text);
+  box-shadow: -10px 0 40px rgba(0,0,0,0.35);
+  transform: translateX(100%);
+  transition: transform 0.28s ease;
+  z-index: 250;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+.drawer.open { transform: translateX(0); }
+#drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+  z-index: 240;
+}
+#drawer-backdrop.open { opacity: 1; pointer-events: auto; }
+.drawer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+.drawer-head button {
+  border: none;
+  background: none;
+  font-size: 26px;
+  color: var(--muted);
+  cursor: pointer;
+  line-height: 1;
+}
+.drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 13px 14px;
+  margin-bottom: 6px;
+  border: none;
+  border-radius: 10px;
+  background: var(--hover);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+.drawer-item:hover { background: var(--chip-bg); }
+.drawer-games {
+  margin-top: auto;
+  background: var(--chip-bg);
+  color: var(--chip-text);
+}
