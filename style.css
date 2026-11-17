@@ -728,3 +728,95 @@ body.dark .admin-btn.exam { border-color: #ffd76a; }
 .style-name { flex: 1; text-align: left; }
 .style-check { opacity: 0; color: var(--border-today); font-weight: 800; }
 .style-row.active .style-check { opacity: 1; }
+/* ==== РАСПИСАНИЕ ЗВОНКОВ ==== */
+.bells-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.bell-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--hover);
+  border-radius: 8px;
+  font-size: 14px;
+}
+.bell-num { font-weight: 700; }
+.bell-time { font-variant-numeric: tabular-nums; color: var(--muted); }
+/* ==== ПОСЕЩАЕМОСТЬ ==== */
+.att-list { max-height: 55vh; overflow-y: auto; margin-top: 10px; }
+.att-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--hover);
+  font-size: 14px;
+}
+.att-fio { flex: 1; }
+.att-opts { display: flex; gap: 6px; align-items: center; }
+.att-sq {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--hover);
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s, opacity 0.15s, box-shadow 0.15s;
+}
+.att-sq svg { width: 16px; height: 16px; display: block; }
+.att-sq input { display: none; }
+.att-sq:hover { background: var(--chip-bg); color: var(--text); }
+.att-sq.on-present { background: #16a34a; color: #fff; box-shadow: 0 2px 10px rgba(22,163,74,0.45); }
+/* Сдвоенный блок пропусков: две равные половинки */
+.att-duo {
+  display: flex;
+  width: 68px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--hover);
+  overflow: hidden;
+  transition: opacity 0.15s, box-shadow 0.15s;
+}
+.att-half {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--muted);
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+}
+.att-half + .att-half { border-left: 1px solid rgba(128,128,128,0.25); }
+.att-half svg { width: 16px; height: 16px; display: block; }
+.att-half input { display: none; }
+.att-half:hover { background: var(--chip-bg); color: var(--text); }
+.att-half.on-absent { background: #dc2626; color: #fff; }
+.att-half.on-excused { background: #d97706; color: #fff; }
+.att-duo.sel-absent { box-shadow: 0 2px 10px rgba(220,38,38,0.45); }
+.att-duo.sel-excused { box-shadow: 0 2px 10px rgba(217,119,6,0.45); }
+/* Затемнение невыбранного */
+.att-opts.has-sel .att-sq:not(.on-present) { opacity: 0.35; }
+.att-opts.has-sel .att-duo:not(.duo-sel) { opacity: 0.35; }
+.att-duo.duo-sel .att-half:not(.on-absent):not(.on-excused) { opacity: 0.35; }
+/* ==== СОСТОЯНИЯ ЗВОНКОВ ==== */
+.bell-row { position: relative; overflow: hidden; }
+.bell-row.current {
+  background: var(--chip-bg);
+  color: var(--chip-text);
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--border-today);
+}
+.bell-row.current .bell-time { color: var(--chip-text); }
+.bell-row.past { opacity: 0.5; }
+.bell-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  background: #22c55e;
+  transition: width 1s linear;
+}
