@@ -1171,9 +1171,19 @@ document.getElementById('theme-toggle').addEventListener('click', () => {
 });
 
 // ==== ПОСЕЩАЕМОСТЬ ====
-function getAttList() {
+// Составы подгрупп по номерам вариантов (из variants.json)
+const SUBGROUP_MEMBERS = {
+  1: [1, 2, 4, 5, 6, 8, 9, 11, 12, 13, 16, 21],
+  2: [3, 7, 10, 14, 15, 17, 18, 19, 20, 22, 23, 24, 25]
+};
+function getAttList(subgroup) {
   const items = (DATA.variants && DATA.variants.items) || [];
-  return [...items].sort((a, b) => a.n - b.n).map(it => ({ id: it.n, fio: `${it.last} ${it.first}` }));
+  let list = [...items].sort((a, b) => a.n - b.n).map(it => ({ id: it.n, fio: `${it.last} ${it.first}` }));
+  if (subgroup === 1 || subgroup === 2) {
+    const members = SUBGROUP_MEMBERS[subgroup] || [];
+    list = list.filter(u => members.includes(u.id));
+  }
+  return list;
 }
 
 function weekNumberOf(date) {
@@ -1269,13 +1279,16 @@ async function renderAttendanceList(dateStr, pairId) {
   }
   list.innerHTML = '<div style="color:var(--muted);font-size:13px;">Загрузка…</div>';
   try {
-    const users = getAttList();
-    const snap = await getDoc(doc(db, 'attendance', `${dateStr}_${pairId}`));
+const dayPairs = getPairsForDate(dateStr);
+const pair = dayPairs.find(p => p.id === pairId);
+const subgroup = pair ? (pair.subgroup || 0) : 0;
+const users = getAttList(subgroup);
+const snap = await getDoc(doc(db, 'attendance', `${dateStr}_${pairId}`));
     const data = snap.exists() ? snap.data() : { present: [], absent: [], excused: [] };
     list.innerHTML = '';
     const head = document.createElement('div');
     head.style.cssText = 'font-size:13px;color:var(--muted);margin-bottom:8px;';
-    head.textContent = new Date(dateStr + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' });
+    head.textContent = new Date(dateStr + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' }) + (subgroup ? ` · подгруппа ${subgroup}` : ' · вся группа');
     list.appendChild(head);
     users.forEach(u => {
       const row = document.createElement('div');
