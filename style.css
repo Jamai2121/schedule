@@ -820,3 +820,12 @@ body.dark .admin-btn.exam { border-color: #ffd76a; }
   background: #22c55e;
   transition: width 1s linear;
 }
+/* ==== СЕЛЕКТ ПАР: читаемые опции в тёмной теме ==== */
+body.dark #att-pair option {
+  background: #ffffff;
+  color: #1e2233;
+}
+body.dark #att-pair option:checked {
+  background: #c7d7fe;
+  color: #1e2233;
+}
