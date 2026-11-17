@@ -188,17 +188,6 @@ function getWeekNumber(offset = 0) {
 function getParity(weekNumber) {
 return weekNumber % 2 === 1 ? 'odd' : 'even';
 }
-// Понедельник отображаемой недели (учитывает воскресенье-превью и стрелки недель)
-function getDisplayedMonday() {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const jsDay = now.getDay();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - ((jsDay + 6) % 7));
-  if (jsDay === 0) monday.setDate(monday.getDate() + 7);
-  monday.setDate(monday.getDate() + currentWeekOffset * 7);
-  return monday;
-}
 // ==== ПРИВЯЗКА НЕДЕЛИ К КАЛЕНДАРЮ ====
 // Понедельник отображаемой недели (учитывает воскресное превью и стрелки ←/→)
 function getDisplayedMonday() {
@@ -1378,17 +1367,3 @@ applyStyle(localStorage.getItem('style') || 'classic');
     status.textContent = 'Ошибка загрузки: ' + err.message;
   }
 })();
-/* ==== ДАТЫ НЕДЕЛИ И ДНЕЙ ==== */
-.week-dates {
-  margin-left: 6px;
-  color: var(--muted);
-  font-weight: 600;
-  font-size: 13px;
-}
-.day-date {
-  margin-left: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-  vertical-align: middle;
-}
