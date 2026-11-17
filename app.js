@@ -186,7 +186,36 @@ function getWeekNumber(offset = 0) {
   return base + offset;
 }
 function getParity(weekNumber) {
-  return weekNumber % 2 === 1 ? 'odd' : 'even';
+return weekNumber % 2 === 1 ? 'odd' : 'even';
+}
+// ==== ПРИВЯЗКА НЕДЕЛИ К КАЛЕНДАРЮ ====
+// Понедельник отображаемой недели (учитывает воскресное превью и стрелки ←/→)
+function getDisplayedMonday() {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const jsDay = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((jsDay + 6) % 7));
+  if (jsDay === 0) monday.setDate(monday.getDate() + 7); // воскресенье: показываем следующую неделю
+  monday.setDate(monday.getDate() + currentWeekOffset * 7);
+  return monday;
+}
+function getDateForDayIndex(i) { // 0 = понедельник … 6 = воскресенье
+  const d = getDisplayedMonday();
+  d.setDate(d.getDate() + i);
+  return d;
+}
+// День стипендии: 25-е, но если суббота/воскресенье — ближайшая пятница
+function getScholarshipDate(year, month) {
+  const d = new Date(year, month, 25);
+  const wd = d.getDay();
+  if (wd === 6) d.setDate(24);
+  else if (wd === 0) d.setDate(23);
+  return d;
+}
+function isScholarshipDay(date) {
+  const sch = getScholarshipDate(date.getFullYear(), date.getMonth());
+  return sch.getTime() === date.getTime();
 }
 
 // ==== OVERRIDES (JSON + Firestore) ====
@@ -315,7 +344,16 @@ async function renderSchedule(weekNumber) {
     title.textContent = displayCount > 0
       ? `${DAY_NAMES[dayKey]} · ${displayCount} ${pairsWord}`
       : DAY_NAMES[dayKey];
-    dayEl.appendChild(title);
+    const dayDate = getDateForDayIndex(DAY_ORDER.indexOf(dayKey));
+if (isScholarshipDay(dayDate)) {
+  const sch = document.createElement('span');
+  sch.className = 'day-scholarship';
+  sch.title = 'День получения стипендии';
+  sch.textContent = '💰 стипендия';
+  title.appendChild(sch);
+  dayEl.classList.add('scholarship-day');
+}
+dayEl.appendChild(title);
     if (pairs.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'empty';
