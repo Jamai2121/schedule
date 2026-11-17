@@ -14,8 +14,11 @@ const fbApp = initializeApp(firebaseConfig);
 const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 
-const ADMIN_UID = "g4WjPt0LYacG8f5Z0ClpzhRVtf82";
-const isAdmin = () => currentUserProfile && currentUserProfile.uid === ADMIN_UID;
+const ADMIN_UIDS = [
+  "g4WjPt0LYacG8f5Z0ClpzhRVtf82",
+  "xCdljK7vcdg9XTN278jitlRyLq02"
+];
+const isAdmin = () => currentUserProfile && ADMIN_UIDS.includes(currentUserProfile.uid);
 
 const LOG_NAMES = {
   hw_add: '➕ ДЗ добавлено',
