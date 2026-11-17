@@ -60,17 +60,18 @@ let authOverlay = null;
 function buildAuthScreen() {
   const overlay = document.createElement('div');
   overlay.className = 'auth-overlay';
+  // Добавили тег <form> и autocomplete="username" / "current-password"
   overlay.innerHTML = `
-    <div class="auth-card">
+    <form class="auth-card" id="auth-form">
       <h2>Вход в расписание</h2>
-      <input id="auth-fio" type="text" placeholder="ФИО полностью (Иванов Иван Иванович)" autocomplete="name">
-      <input id="auth-pass" type="password" placeholder="Пароль (мин. 6 символов)">
+      <input id="auth-fio" type="text" placeholder="ФИО полностью" autocomplete="username">
+      <input id="auth-pass" type="password" placeholder="Пароль" autocomplete="current-password">
       <div class="auth-row">
-        <button id="auth-login" class="auth-btn">Войти</button>
-        <button id="auth-register" class="auth-btn secondary">Регистрация</button>
+        <button type="button" id="auth-login" class="auth-btn">Войти</button>
+        <button type="button" id="auth-register" class="auth-btn secondary">Регистрация</button>
       </div>
       <div id="auth-error" class="auth-error"></div>
-    </div>`;
+    </form>`;
   document.body.appendChild(overlay);
 
   const fioEl = overlay.querySelector('#auth-fio');
@@ -99,9 +100,17 @@ function buildAuthScreen() {
       else errEl.textContent = 'Ошибка: ' + e.code;
     }
   };
+
+  // Обработчики кнопок
   overlay.querySelector('#auth-login').addEventListener('click', () => doAuth('login'));
   overlay.querySelector('#auth-register').addEventListener('click', () => doAuth('register'));
-  passEl.addEventListener('keydown', e => { if (e.key === 'Enter') doAuth('login'); });
+  
+  // Обработка нажатия Enter в форме (чтобы браузер точно понял, что это сабмит)
+  overlay.querySelector('#auth-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    doAuth('login');
+  });
+
   return overlay;
 }
 
@@ -168,6 +177,8 @@ async function loadAll() {
 function getWeekNumber(offset = 0) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
+  // В воскресенье показываем следующую неделю (превью), с понедельника всё как обычно
+  if (now.getDay() === 0) offset += 1;
   const start = new Date(now.getFullYear(), START_OF_SEMESTER.month, START_OF_SEMESTER.day);
   start.setHours(0, 0, 0, 0);
   if (now < start) start.setFullYear(start.getFullYear() - 1);
@@ -752,6 +763,7 @@ function createMenu() {
     <button class="drawer-item" data-menu="variants">🎓 Варианты и фамилии</button>
     <button class="drawer-item" data-menu="info">❗ Важная информация</button>
     <button class="drawer-item" data-menu="books">📚 Учебники</button>
+    <button class="drawer-item" data-menu="attendance">📋 Посещаемость</button> 
     <button class="drawer-item drawer-games" data-menu="games">🎮 Игры</button>
   `;
   document.body.appendChild(drawer);
@@ -772,6 +784,7 @@ function createMenu() {
       if (kind === 'variants') { renderVariants(); document.getElementById('variants-modal').classList.remove('hidden'); }
       if (kind === 'info') { renderInfo(); document.getElementById('info-modal').classList.remove('hidden'); }
       if (kind === 'books') { renderBooks(); document.getElementById('books-modal').classList.remove('hidden'); }
+      if (kind === 'attendance') openAttendance();
       if (kind === 'games') window.location.href = './games/';
     });
   });
@@ -891,6 +904,16 @@ function createBellButton() {
   bellBtn.textContent = '🔔';
   bellBtn.addEventListener('click', openBellModal);
   actions.insertBefore(bellBtn, actions.firstChild);
+
+  if (!document.getElementById('bells-btn')) {
+    const bellsBtn = document.createElement('button');
+    bellsBtn.className = 'icon-btn';
+    bellsBtn.id = 'bells-btn';
+    bellsBtn.title = 'Расписание звонков';
+    bellsBtn.textContent = '🕐';
+    bellsBtn.addEventListener('click', openBellsModal);
+    bellBtn.after(bellsBtn);
+  }
 }
 
 async function openBellModal() {
@@ -963,6 +986,51 @@ async function checkNotifications() {
   }
 }
 
+// ==== РАСПИСАНИЕ ЗВОНКОВ ====
+const BELLS = [
+  { num: 1, start: '08:00', end: '09:35' },
+  { num: 2, start: '09:45', end: '11:20' },
+  { num: 3, start: '11:45', end: '13:20' },
+  { num: 4, start: '13:30', end: '15:05' },
+  { num: 5, start: '15:30', end: '17:05' },
+  { num: 6, start: '17:15', end: '18:50' }
+];
+
+function renderBellsRows(container) {
+  const now = nowMinutes();
+  container.innerHTML = BELLS.map(b => {
+    const s = timeToMinutes(b.start);
+    const e = timeToMinutes(b.end);
+    let cls = 'bell-row';
+    let bar = '';
+    if (now >= s && now < e) {
+      const progress = Math.round(((now - s) / (e - s)) * 100);
+      cls += ' current';
+      bar = `<div class="bell-progress" style="width:${progress}%"></div>`;
+    } else if (now >= e) {
+      cls += ' past';
+    }
+    return `<div class="${cls}">${bar}<span class="bell-num">${b.num} пара</span><span class="bell-time">${b.start} – ${b.end}</span></div>`;
+  }).join('');
+}
+function openBellsModal() {
+  const old = document.getElementById('bells-modal');
+  if (old) old.remove();
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'bells-modal';
+  modal.innerHTML = `<div class="modal-content"> <button class="modal-close" data-bells-close>×</button> <h2>🕐 Расписание звонков</h2> <div class="bells-list"></div> </div>`;
+  document.body.appendChild(modal);
+  const list = modal.querySelector('.bells-list');
+  renderBellsRows(list);
+  // живое обновление каждые 30 секунд, пока модалка открыта
+  const timer = setInterval(() => {
+    if (!document.getElementById('bells-modal')) { clearInterval(timer); return; }
+    renderBellsRows(list);
+  }, 30000);
+  modal.querySelector('[data-bells-close]').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+}
 // ==== СТИЛИ ====
 const STYLE_FILES = [
   './styles/classic.js',
@@ -1049,6 +1117,140 @@ createStyleButton();
 document.getElementById('theme-toggle').addEventListener('click', () => {
   applyStyle(localStorage.getItem('style') || 'classic');
 });
+
+// ==== ПОСЕЩАЕМОСТЬ ====
+// Список берём из variants.json — вся группа, даже кто не зарегистрирован на сайте
+function getAttList() {
+  const items = (DATA.variants && DATA.variants.items) || [];
+  return [...items]
+    .sort((a, b) => a.n - b.n)
+    .map(it => ({ id: it.n, fio: `${it.last} ${it.first}` }));
+}
+
+function applyAttClasses(opts) {
+  if (!opts) return;
+  const checked = opts.querySelector('input:checked');
+  const val = checked ? checked.value : null;
+  const sq = opts.querySelector('.att-sq');
+  const duo = opts.querySelector('.att-duo');
+  if (!sq || !duo) return;
+  sq.classList.toggle('on-present', val === 'present');
+  duo.querySelector('[data-val="absent"]').classList.toggle('on-absent', val === 'absent');
+  duo.querySelector('[data-val="excused"]').classList.toggle('on-excused', val === 'excused');
+  duo.classList.toggle('duo-sel', val === 'absent' || val === 'excused');
+  duo.classList.toggle('sel-absent', val === 'absent');
+  duo.classList.toggle('sel-excused', val === 'excused');
+  opts.classList.toggle('has-sel', !!val);
+}
+
+async function openAttendance() {
+  const old = document.getElementById('attendance-modal');
+  if (old) old.remove();
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'attendance-modal';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <button class="modal-close" data-att-close>×</button>
+      <h2>📋 Посещаемость</h2>
+      <input type="date" id="att-date" class="admin-input">
+      <div id="att-list" class="att-list"></div>
+      ${isAdmin() ? '<button id="att-save" class="auth-btn" style="width:100%;margin-top:12px;">Сохранить отметки</button>' : ''}
+    </div>`;
+  document.body.appendChild(modal);
+  modal.querySelector('[data-att-close]').addEventListener('click', () => modal.remove());
+  modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+  const dateInput = modal.querySelector('#att-date');
+  dateInput.value = new Date().toISOString().split('T')[0];
+  dateInput.addEventListener('change', () => renderAttendanceList(dateInput.value));
+const saveBtn = modal.querySelector('#att-save');
+if (saveBtn) saveBtn.addEventListener('click', () => saveAttendance(dateInput.value));
+// Переключение квадратов: выбранный горит, остальные гаснут
+modal.querySelector('#att-list').addEventListener('change', e => {
+  if (!e.target.matches('input[type="radio"]')) return;
+  applyAttClasses(e.target.closest('.att-opts'));
+});
+await renderAttendanceList(dateInput.value);
+}
+
+async function renderAttendanceList(dateStr) {
+  const list = document.getElementById('att-list');
+  if (!list) return;
+  list.innerHTML = '<div style="color:var(--muted);font-size:13px;">Загрузка...</div>';
+  try {
+const users = getAttList();
+const attSnap = await getDoc(doc(db, 'attendance', dateStr));
+    const data = attSnap.exists() ? attSnap.data() : { present: [], absent: [], excused: [] };
+    list.innerHTML = '';
+    const head = document.createElement('div');
+    head.style.cssText = 'font-size:13px;color:var(--muted);margin-bottom:8px;';
+    head.textContent = new Date(dateStr + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' });
+    list.appendChild(head);
+
+    users.forEach(u => {
+      const row = document.createElement('div');
+      row.className = 'att-row';
+      const status = data.present?.includes(u.uid) ? 'present'
+        : data.absent?.includes(u.uid) ? 'absent'
+        : data.excused?.includes(u.uid) ? 'excused' : null;
+      if (isAdmin()) {
+      row.innerHTML = `
+        <span class="att-fio">${u.fio || '—'}</span>
+        <span class="att-opts">
+          <label class="att-sq" title="Был">
+            <input type="radio" name="att_${u.uid}" data-uid="${u.uid}" value="present" ${status === 'present' ? 'checked' : ''}>
+            <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </label>
+          <span class="att-duo">
+            <label class="att-half" data-val="absent" title="Не был">
+              <input type="radio" name="att_${u.uid}" data-uid="${u.uid}" value="absent" ${status === 'absent' ? 'checked' : ''}>
+              <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+            </label>
+            <label class="att-half" data-val="excused" title="Уважительная">
+              <input type="radio" name="att_${u.uid}" data-uid="${u.uid}" value="excused" ${status === 'excused' ? 'checked' : ''}>
+            <svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 3v4h4M10 12h5M10 16h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            </label>
+          </span>
+        </span>`;
+      applyAttClasses(row.querySelector('.att-opts'));
+      } else {
+        const map = {
+          present: ['✅ Был', 'var(--chip-text)'],
+          absent: ['❌ Не был', '#ef4444'],
+          excused: ['📄 Уважительная', '#d97706']
+        };
+        const [txt, color] = map[status] || ['— Нет данных', 'var(--muted)'];
+        row.innerHTML = `<span class="att-fio">${u.fio || '—'}</span><span style="color:${color};font-weight:600;font-size:13px;">${txt}</span>`;
+      }
+      list.appendChild(row);
+    });
+  } catch (e) {
+    console.error(e);
+    list.innerHTML = '<div style="color:#ef4444;font-size:13px;">Ошибка загрузки</div>';
+  }
+}
+
+async function saveAttendance(dateStr) {
+  const present = [], absent = [], excused = [];
+document.querySelectorAll('#att-list input[type="radio"]:checked').forEach(r => {
+if (r.value === 'present') present.push(Number(r.dataset.id));
+if (r.value === 'absent') absent.push(Number(r.dataset.id));
+if (r.value === 'excused') excused.push(Number(r.dataset.id));
+});
+  try {
+    await setDoc(doc(db, 'attendance', dateStr), {
+      date: dateStr, present, absent, excused,
+      updatedBy: currentUserProfile.uid,
+      updatedByFio: currentUserProfile.fio,
+      updatedAt: Date.now()
+    });
+    alert('Сохранено!');
+  } catch (e) {
+    console.error(e);
+    alert('Ошибка: ' + (e.code === 'permission-denied' ? 'нет прав' : e.message));
+  }
+}
 
 // ==== ОБНОВЛЕНИЕ ====
 async function refresh() {
