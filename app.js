@@ -1119,12 +1119,23 @@ document.getElementById('theme-toggle').addEventListener('click', () => {
 });
 
 // ==== ПОСЕЩАЕМОСТЬ ====
-// Список берём из variants.json — вся группа, даже кто не зарегистрирован на сайте
 function getAttList() {
   const items = (DATA.variants && DATA.variants.items) || [];
-  return [...items]
-    .sort((a, b) => a.n - b.n)
-    .map(it => ({ id: it.n, fio: `${it.last} ${it.first}` }));
+  return [...items].sort((a, b) => a.n - b.n).map(it => ({ id: it.n, fio: `${it.last} ${it.first}` }));
+}
+
+function weekNumberOf(date) {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const start = new Date(d.getFullYear(), START_OF_SEMESTER.month, START_OF_SEMESTER.day);
+  if (d < start) start.setFullYear(start.getFullYear() - 1);
+  return Math.floor((d - start) / (7 * 86400000)) + 1;
+}
+
+function getPairsForDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const dayKey = JS_DAY_TO_KEY[d.getDay()];
+  const parity = getParity(weekNumberOf(d));
+  return (DATA.schedule && DATA.schedule[parity] && DATA.schedule[parity][dayKey]) || [];
 }
 
 function applyAttClasses(opts) {
@@ -1144,16 +1155,19 @@ function applyAttClasses(opts) {
 }
 
 async function openAttendance() {
-  const old = document.getElementById('attendance-modal');
+  const old = document.getElementById('att-modal');
   if (old) old.remove();
+  const t = new Date();
+  const dateStr = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
   const modal = document.createElement('div');
   modal.className = 'modal';
-  modal.id = 'attendance-modal';
+  modal.id = 'att-modal';
   modal.innerHTML = `
     <div class="modal-content">
       <button class="modal-close" data-att-close>×</button>
       <h2>📋 Посещаемость</h2>
-      <input type="date" id="att-date" class="admin-input">
+      <div style="margin:10px 0;"><input type="date" id="att-date" class="admin-input" value="${dateStr}"></div>
+      <select id="att-pair" class="admin-input"></select>
       <div id="att-list" class="att-list"></div>
       ${isAdmin() ? '<button id="att-save" class="auth-btn" style="width:100%;margin-top:12px;">Сохранить отметки</button>' : ''}
     </div>`;
@@ -1162,66 +1176,87 @@ async function openAttendance() {
   modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 
   const dateInput = modal.querySelector('#att-date');
-  dateInput.value = new Date().toISOString().split('T')[0];
-  dateInput.addEventListener('change', () => renderAttendanceList(dateInput.value));
-const saveBtn = modal.querySelector('#att-save');
-if (saveBtn) saveBtn.addEventListener('click', () => saveAttendance(dateInput.value));
-// Переключение квадратов: выбранный горит, остальные гаснут
-modal.querySelector('#att-list').addEventListener('change', e => {
-  if (!e.target.matches('input[type="radio"]')) return;
-  applyAttClasses(e.target.closest('.att-opts'));
-});
-await renderAttendanceList(dateInput.value);
+  const pairSelect = modal.querySelector('#att-pair');
+
+  const refreshPairs = () => {
+    const pairs = getPairsForDate(dateInput.value);
+    pairSelect.innerHTML = '';
+    if (pairs.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'В этот день пар нет';
+      pairSelect.appendChild(opt);
+    } else {
+      pairs.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.time} · ${p.subject}${p.subgroup ? ' (подгр. ' + p.subgroup + ')' : ''}`;
+        pairSelect.appendChild(opt);
+      });
+    }
+    renderAttendanceList(dateInput.value, pairSelect.value);
+  };
+
+  dateInput.addEventListener('change', refreshPairs);
+  pairSelect.addEventListener('change', () => renderAttendanceList(dateInput.value, pairSelect.value));
+  modal.querySelector('#att-list').addEventListener('change', e => {
+    if (!e.target.matches('input[type="radio"]')) return;
+    applyAttClasses(e.target.closest('.att-opts'));
+  });
+  const saveBtn = modal.querySelector('#att-save');
+  if (saveBtn) saveBtn.addEventListener('click', () => saveAttendance(dateInput.value, pairSelect.value));
+  refreshPairs();
 }
 
-async function renderAttendanceList(dateStr) {
+async function renderAttendanceList(dateStr, pairId) {
   const list = document.getElementById('att-list');
   if (!list) return;
-  list.innerHTML = '<div style="color:var(--muted);font-size:13px;">Загрузка...</div>';
+  if (!pairId) {
+    list.innerHTML = '<div style="color:var(--muted);font-size:13px;">В этот день пар нет</div>';
+    return;
+  }
+  list.innerHTML = '<div style="color:var(--muted);font-size:13px;">Загрузка…</div>';
   try {
-const users = getAttList();
-const attSnap = await getDoc(doc(db, 'attendance', dateStr));
-    const data = attSnap.exists() ? attSnap.data() : { present: [], absent: [], excused: [] };
+    const users = getAttList();
+    const snap = await getDoc(doc(db, 'attendance', `${dateStr}_${pairId}`));
+    const data = snap.exists() ? snap.data() : { present: [], absent: [], excused: [] };
     list.innerHTML = '';
     const head = document.createElement('div');
     head.style.cssText = 'font-size:13px;color:var(--muted);margin-bottom:8px;';
     head.textContent = new Date(dateStr + 'T00:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'long' });
     list.appendChild(head);
-
     users.forEach(u => {
       const row = document.createElement('div');
       row.className = 'att-row';
-      const status = data.present?.includes(u.uid) ? 'present'
-        : data.absent?.includes(u.uid) ? 'absent'
-        : data.excused?.includes(u.uid) ? 'excused' : null;
+      const status = data.present?.includes(u.id) ? 'present'
+        : data.absent?.includes(u.id) ? 'absent'
+        : data.excused?.includes(u.id) ? 'excused' : null;
       if (isAdmin()) {
-      row.innerHTML = `
-        <span class="att-fio">${u.fio || '—'}</span>
-        <span class="att-opts">
-          <label class="att-sq" title="Был">
-            <input type="radio" name="att_${u.uid}" data-uid="${u.uid}" value="present" ${status === 'present' ? 'checked' : ''}>
-            <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </label>
-          <span class="att-duo">
-            <label class="att-half" data-val="absent" title="Не был">
-              <input type="radio" name="att_${u.uid}" data-uid="${u.uid}" value="absent" ${status === 'absent' ? 'checked' : ''}>
-              <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+        row.innerHTML = `
+          <span class="att-fio">${u.fio}</span>
+          <span class="att-opts">
+            <label class="att-sq" title="Был">
+              <input type="radio" name="att_${u.id}" data-id="${u.id}" value="present" ${status === 'present' ? 'checked' : ''}>
+              <svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </label>
-            <label class="att-half" data-val="excused" title="Уважительная">
-              <input type="radio" name="att_${u.uid}" data-uid="${u.uid}" value="excused" ${status === 'excused' ? 'checked' : ''}>
-            <svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 3v4h4M10 12h5M10 16h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </label>
-          </span>
-        </span>`;
-      applyAttClasses(row.querySelector('.att-opts'));
+            <span class="att-duo">
+              <label class="att-half" data-val="absent" title="Не был">
+                <input type="radio" name="att_${u.id}" data-id="${u.id}" value="absent" ${status === 'absent' ? 'checked' : ''}>
+                <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+              </label>
+              <label class="att-half" data-val="excused" title="Уважительная">
+                <input type="radio" name="att_${u.id}" data-id="${u.id}" value="excused" ${status === 'excused' ? 'checked' : ''}>
+                <svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 3v4h4M10 12h5M10 16h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              </label>
+            </span>
+          </span>`;
+        applyAttClasses(row.querySelector('.att-opts'));
       } else {
-        const map = {
-          present: ['✅ Был', 'var(--chip-text)'],
-          absent: ['❌ Не был', '#ef4444'],
-          excused: ['📄 Уважительная', '#d97706']
-        };
-        const [txt, color] = map[status] || ['— Нет данных', 'var(--muted)'];
-        row.innerHTML = `<span class="att-fio">${u.fio || '—'}</span><span style="color:${color};font-weight:600;font-size:13px;">${txt}</span>`;
+        let statusHtml = '<span style="color:var(--muted);font-weight:600;font-size:13px;">— нет данных</span>';
+        if (status === 'present') statusHtml = '<span style="color:#16a34a;font-weight:600;font-size:13px;">✅ был</span>';
+        if (status === 'absent') statusHtml = '<span style="color:#dc2626;font-weight:600;font-size:13px;">❌ не был</span>';
+        if (status === 'excused') statusHtml = '<span style="color:#d97706;font-weight:600;font-size:13px;">📄 уважительная</span>';
+        row.innerHTML = `<span class="att-fio">${u.fio}</span>${statusHtml}`;
       }
       list.appendChild(row);
     });
@@ -1231,26 +1266,31 @@ const attSnap = await getDoc(doc(db, 'attendance', dateStr));
   }
 }
 
-async function saveAttendance(dateStr) {
+async function saveAttendance(dateStr, pairId) {
+  if (!pairId) return alert('Выбери пару');
   const present = [], absent = [], excused = [];
-document.querySelectorAll('#att-list input[type="radio"]:checked').forEach(r => {
-if (r.value === 'present') present.push(Number(r.dataset.id));
-if (r.value === 'absent') absent.push(Number(r.dataset.id));
-if (r.value === 'excused') excused.push(Number(r.dataset.id));
-});
+  document.querySelectorAll('#att-list input[type="radio"]:checked').forEach(r => {
+    const id = Number(r.dataset.id);
+    if (r.value === 'present') present.push(id);
+    if (r.value === 'absent') absent.push(id);
+    if (r.value === 'excused') excused.push(id);
+  });
   try {
-    await setDoc(doc(db, 'attendance', dateStr), {
-      date: dateStr, present, absent, excused,
+    await setDoc(doc(db, 'attendance', `${dateStr}_${pairId}`), {
+      date: dateStr,
+      pairId,
+      present, absent, excused,
       updatedBy: currentUserProfile.uid,
       updatedByFio: currentUserProfile.fio,
       updatedAt: Date.now()
     });
-    alert('Сохранено!');
+    alert('Сохранено');
   } catch (e) {
     console.error(e);
-    alert('Ошибка: ' + (e.code === 'permission-denied' ? 'нет прав' : e.message));
+    alert('Ошибка сохранения: ' + (e.code === 'permission-denied' ? 'нет прав' : e.message));
   }
 }
+
 
 // ==== ОБНОВЛЕНИЕ ====
 async function refresh() {
