@@ -188,6 +188,17 @@ function getWeekNumber(offset = 0) {
 function getParity(weekNumber) {
 return weekNumber % 2 === 1 ? 'odd' : 'even';
 }
+// Понедельник отображаемой недели (учитывает воскресенье-превью и стрелки недель)
+function getDisplayedMonday() {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const jsDay = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((jsDay + 6) % 7));
+  if (jsDay === 0) monday.setDate(monday.getDate() + 7);
+  monday.setDate(monday.getDate() + currentWeekOffset * 7);
+  return monday;
+}
 // ==== ПРИВЯЗКА НЕДЕЛИ К КАЛЕНДАРЮ ====
 // Понедельник отображаемой недели (учитывает воскресное превью и стрелки ←/→)
 function getDisplayedMonday() {
@@ -298,10 +309,14 @@ async function addLog(action, details, pair) {
 
 // ==== РЕНДЕР ====
 function renderHeader(weekNumber) {
-  const parity = getParity(weekNumber);
-  const el = document.getElementById('week-info');
-  const parityText = parity === 'even' ? 'чётная' : 'нечётная';
-  el.innerHTML = `Неделя №${weekNumber}<span class="parity ${parity}">· ${parityText}</span>`;
+const parity = getParity(weekNumber);
+const el = document.getElementById('week-info');
+const parityText = parity === 'even' ? 'чётная' : 'нечётная';
+const monday = getDisplayedMonday();
+const sunday = new Date(monday);
+sunday.setDate(monday.getDate() + 6);
+const fmt = d => `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+el.innerHTML = `Неделя №${weekNumber}<span class="parity ${parity}">· ${parityText}</span><span class="week-dates">· ${fmt(monday)} – ${fmt(sunday)}.${sunday.getFullYear()}</span>`;
 }
 
 async function renderSchedule(weekNumber) {
@@ -353,6 +368,13 @@ if (isScholarshipDay(dayDate)) {
   title.appendChild(sch);
   dayEl.classList.add('scholarship-day');
 }
+const mondayRef = getDisplayedMonday();
+const titleDate = new Date(mondayRef);
+titleDate.setDate(mondayRef.getDate() + DAY_ORDER.indexOf(dayKey));
+const dateSpan = document.createElement('span');
+dateSpan.className = 'day-date';
+dateSpan.textContent = `${String(titleDate.getDate()).padStart(2, '0')}.${String(titleDate.getMonth() + 1).padStart(2, '0')}.${titleDate.getFullYear()}`;
+title.appendChild(dateSpan);
 dayEl.appendChild(title);
     if (pairs.length === 0) {
       const empty = document.createElement('div');
@@ -1356,3 +1378,17 @@ applyStyle(localStorage.getItem('style') || 'classic');
     status.textContent = 'Ошибка загрузки: ' + err.message;
   }
 })();
+/* ==== ДАТЫ НЕДЕЛИ И ДНЕЙ ==== */
+.week-dates {
+  margin-left: 6px;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 13px;
+}
+.day-date {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  vertical-align: middle;
+}
